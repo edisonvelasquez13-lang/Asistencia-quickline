@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<meta name="apple-mobile-web-app-title" content="Quick Line">
+<meta name="theme-color" content="#060D1F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Asistencia · Quick Line</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc, addDoc, getDocs,
+    query, where, onSnapshot, serverTimestamp, orderBy
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDfz7VCLFCvbE10HRATS-AT3vbBWIYo6zE",
+    authDomain: "quickline-asistencia.firebaseapp.com",
+    projectId: "quickline-asistencia",
+    storageBucket: "quickline-asistencia.firebasestorage.app",
+    messagingSenderId: "33716348720",
+    appId: "1:33716348720:web:ad61f487cdf53c68074af5"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db = getFirestore(fbApp);
+
+  // Exponer en window para usar desde scripts normales (no-module)
+  window.FB = {
+    db, collection, doc, setDoc, addDoc, getDocs,
+    query, where, onSnapshot, serverTimestamp, orderBy
+  };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+  :root {
+    --bg:     #060D1F;
+    --bg2:    #0D1A35;
+    --bg3:    #152040;
+    --border: rgba(255,255,255,0.08);
+    --blue:   #1A6FD4;
+    --amber:  #F5A800;
+    --green:  #0EC47A;
+    --red:    #F0595A;
+    --text:   #EEF3FF;
+    --muted:  #7A8EAD;
+    --r:      14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+
+  /* ── HEADER ── */
+  header{
+    background:var(--bg2);border-bottom:2px solid var(--amber);
+    padding:12px 20px;display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:100;
+  }
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo svg{width:32px;height:32px}
+  .logo-txt{font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .logo-txt span{color:var(--amber)}
+  .hdr-right{display:flex;gap:8px;align-items:center}
+
+  /* ── TABS ── */
+  .tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto}
+  .tab{padding:12px 20px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;
+       border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+  .tab.active{color:var(--amber);border-color:var(--amber)}
+
+  /* ── LAYOUT ── */
+  .page{display:none;padding:20px;max-width:600px;margin:0 auto}
+  .page.active{display:block}
+
+  /* ── CARDS ── */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px}
+  .card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;
+               letter-spacing:.5px;margin-bottom:14px}
+
+  /* ── BOTONES ── */
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+       padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;
+       border:none;transition:all .15s;font-family:inherit}
+  .btn-blue{background:var(--blue);color:#fff}
+  .btn-blue:hover{background:#1560BA}
+  .btn-amber{background:var(--amber);color:#060D1F}
+  .btn-amber:hover{filter:brightness(1.1)}
+  .btn-green{background:var(--green);color:#060D1F}
+  .btn-green:hover{filter:brightness(1.1)}
+  .btn-red{background:var(--red);color:#fff}
+  .btn-red:hover{filter:brightness(1.1)}
+  .btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}
+  .btn-outline:hover{background:var(--bg3)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-sm{padding:8px 14px;font-size:12px;width:auto;border-radius:8px}
+
+  /* ── INPUTS ── */
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--muted);font-weight:600;
+                text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+  input,select{width:100%;background:var(--bg3);border:1px solid var(--border);
+               border-radius:8px;padding:11px 14px;color:var(--text);font-size:16px;
+               font-family:inherit;outline:none;transition:border .15s}
+  input:focus,select:focus{border-color:var(--blue)}
+
+  /* ── CÁMARA ── */
+  .cam-wrap{position:relative;border-radius:12px;overflow:hidden;background:#000;
+             aspect-ratio:3/4;max-height:380px;margin-bottom:14px}
+  .cam-wrap video,.cam-wrap canvas{width:100%;height:100%;object-fit:cover;display:block}
+  .cam-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .cam-ring{width:180px;height:180px;border-radius:50%;border:3px solid rgba(245,168,0,.6);
+             box-shadow:0 0 0 4px rgba(245,168,0,.15)}
+  .cam-label{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+              background:rgba(0,0,0,.65);color:#fff;font-size:12px;font-weight:600;
+              padding:5px 14px;border-radius:99px;white-space:nowrap}
+
+  /* ── FOTO PREVIEW ── */
+  .foto-preview{border-radius:10px;overflow:hidden;margin-bottom:12px;display:none}
+  .foto-preview img{width:100%;display:block;max-height:260px;object-fit:cover}
+
+  /* ── STATUS BADGE ── */
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;
+          font-size:11px;font-weight:700}
+  .badge-green{background:rgba(14,196,122,.15);color:var(--green)}
+  .badge-red{background:rgba(240,89,90,.15);color:var(--red)}
+  .badge-amber{background:rgba(245,168,0,.15);color:var(--amber)}
+  .badge-blue{background:rgba(26,111,212,.15);color:var(--blue)}
+
+  /* ── LISTA TRABAJADORES ── */
+  .worker-item{display:flex;align-items:center;gap:12px;padding:12px;
+               background:var(--bg3);border-radius:10px;margin-bottom:8px}
+  .worker-avatar{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;
+                  border:2px solid var(--border)}
+  .worker-avatar-ph{width:44px;height:44px;border-radius:50%;background:var(--bg2);
+                     border:2px solid var(--border);display:flex;align-items:center;
+                     justify-content:center;font-size:18px;flex-shrink:0}
+  .worker-info{flex:1;min-width:0}
+  .worker-name{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .worker-cargo{font-size:12px;color:var(--muted)}
+  .worker-actions{display:flex;gap:6px;flex-shrink:0}
+
+  /* ── REGISTRO TABLE ── */
+  .reg-item{border-left:3px solid var(--border);padding:10px 14px;margin-bottom:8px;
+             background:var(--bg3);border-radius:0 10px 10px 0}
+  .reg-item.entrada{border-color:var(--green)}
+  .reg-item.completo{border-color:var(--blue)}
+  .reg-item.pendiente{border-color:var(--amber)}
+  .reg-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .reg-name{font-weight:700;font-size:14px}
+  .reg-times{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .reg-time-block{background:var(--bg2);border-radius:8px;padding:8px 10px}
+  .reg-time-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase}
+  .reg-time-val{font-size:16px;font-weight:700;margin-top:2px}
+
+  /* ── TOAST ── */
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+          background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+          padding:12px 20px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;
+          z-index:999;pointer-events:none;white-space:nowrap;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.ok{border-color:var(--green);color:var(--green)}
+  #toast.err{border-color:var(--red);color:var(--red)}
+  #toast.info{border-color:var(--blue);color:var(--blue)}
+
+  /* ── SPINNER ── */
+  .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);
+            border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── VERIFICANDO ── */
+  .verif-overlay{display:none;position:fixed;inset:0;background:rgba(6,13,31,.92);
+                  z-index:200;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  .verif-overlay.show{display:flex}
+  .verif-icon{width:72px;height:72px;border-radius:50%;border:3px solid var(--blue);
+               display:flex;align-items:center;justify-content:center;font-size:32px;
+               animation:pulse 1.5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(26,111,212,.4)}50%{box-shadow:0 0 0 16px rgba(26,111,212,0)}}
+  .verif-txt{font-size:16px;font-weight:700;color:var(--text)}
+  .verif-sub{font-size:13px;color:var(--muted)}
+
+  /* ── RESULTADO VERIFICACIÓN ── */
+  .result-box{border-radius:12px;padding:16px;margin-bottom:14px;display:none}
+  .result-box.ok{background:rgba(14,196,122,.1);border:1px solid rgba(14,196,122,.3)}
+  .result-box.fail{background:rgba(240,89,90,.1);border:1px solid rgba(240,89,90,.3)}
+  .result-box.warn{background:rgba(245,168,0,.1);border:1px solid rgba(245,168,0,.3)}
+  .result-title{font-weight:700;font-size:15px;margin-bottom:4px}
+  .result-sub{font-size:12px;color:var(--muted);line-height:1.5}
+
+  /* ── EXPORT BTN ── */
+  .export-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+
+  .empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
+  .empty-state .icon{font-size:48px;margin-bottom:12px}
+  .empty-state p{font-size:14px}
+
+  @media(max-width:480px){
+    .tabs .tab{padding:10px 14px;font-size:12px}
+    .page{padding:14px}
+  }
+
+  /* ── MOBILE OPTIMIZATIONS ── */
+  *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+
+  /* Botones táctiles más grandes en móvil */
+  .btn{min-height:48px;touch-action:manipulation}
+  .btn-sm{min-height:40px}
+  .tab{min-height:44px;display:flex;align-items:center;justify-content:center;
+       touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+  /* Inputs claros en móvil */
+  input,select{-webkit-appearance:none;appearance:none;
+               border-radius:8px;font-size:16px!important}
+  input[type="password"]{letter-spacing:4px}
+  input[inputmode="numeric"]{letter-spacing:8px;text-align:center;font-size:22px!important}
+
+  /* Cards con padding cómodo en pantallas pequeñas */
+  @media(max-width:380px){
+    .card{padding:14px}
+    .btn{font-size:14px;padding:12px}
+    .logo-txt{font-size:15px}
+    header{padding:10px 14px}
+    .page{padding:14px}
+  }
+
+  /* Pantallas medianas (tablets) */
+  @media(min-width:601px){
+    .page{max-width:520px}
+  }
+
+  /* Evitar que el teclado virtual tape el contenido */
+  @supports(height:100dvh){
+    html,body{height:100dvh}
+  }
+  @supports(-webkit-fill-available){
+    html{height:-webkit-fill-available}
+    body{min-height:-webkit-fill-available}
+  }
+
+  /* Fix scroll en iOS Safari */
+  .page{overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+  /* Toast visible en móvil */
+  #toast{
+    bottom:env(safe-area-inset-bottom, 24px);
+    bottom:calc(env(safe-area-inset-bottom, 0px) + 24px);
+    left:50%;transform:translateX(-50%);
+    width:calc(100% - 32px);max-width:360px;
+    font-size:14px;text-align:center;border-radius:12px;
+    padding:12px 16px;
+  }
+
+  /* Safe area para notch/Dynamic Island (iPhone 14+) */
+  header{padding-top:max(12px, env(safe-area-inset-top))}
+  body{padding-bottom:env(safe-area-inset-bottom,0)}
+
+</style>
+
+<script>
+// Registrar Service Worker para PWA
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('SW registrado:', reg.scope))
+      .catch(err => console.log('SW error:', err));
+  });
+}
+</script>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN / SELECCIÓN DE ROL ═══════════════ -->
+<div id="login-screen" style="min-height:100vh;display:flex;flex-direction:column;
+     align-items:center;justify-content:center;padding:24px;gap:24px">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+    <svg viewBox="0 0 32 32" fill="none" width="44" height="44"><rect width="32" height="32" rx="9" fill="#0D2B5E"/>
+      <path d="M6 22L11 10L17 18L22 12L26 22" stroke="#F5A800" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div style="font-size:22px;font-weight:700">Quick <span style="color:var(--amber)">Line</span></div>
+  </div>
+  <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:-16px">Control de Asistencia</div>
+
+  <div class="card" style="width:100%;max-width:340px">
+    <div class="card-title">Soy...</div>
+    <button class="btn btn-amber" style="margin-bottom:10px" onclick="loginTrabajador()">
+      👷 Trabajador
+    </button>
+    <button class="btn btn-outline" onclick="mostrarLoginAdmin()">
+      🔑 Administrador
+    </button>
+
+    <div id="admin-login-box" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="field">
+        <label>Clave de administrador</label>
+        <input type="password" id="admin-pass" autocomplete="current-password" placeholder="••••••" onkeydown="if(event.key==='Enter')loginAdmin()">
+      </div>
+      <button class="btn btn-blue" onclick="loginAdmin()">Ingresar</button>
+    </div>
+  </div>
+
+  <div id="conn-status" style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
+    <span id="conn-dot" style="width:8px;height:8px;border-radius:50%;background:var(--amber)"></span>
+    Conectando con la base de datos...
+  </div>
+</div>
+
+<!-- ═══════════════ APP PRINCIPAL (oculta hasta login) ═══════════════ -->
+<div id="app-main" style="display:none">
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="#0D2B5E"/>
+      <path d="M6 22L11 10L17 18L22 12L26 22" stroke="#F5A800" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="logo-txt">Quick <span>Line</span></div>
+  </div>
+  <div class="hdr-right">
+    <span id="rol-badge" class="badge badge-blue" style="font-size:10px"></span>
+    <span id="fecha-hdr" style="font-size:12px;color:var(--muted)"></span>
+    <button class="btn-sm btn-outline" style="padding:5px 10px" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="goTab('registro')">📸 Registro</div>
+  <div class="tab" id="tab-btn-trabajadores" onclick="goTab('trabajadores')">👥 Trabajadores</div>
+
+  <div class="tab" id="tab-btn-historial" onclick="goTab('historial')">📋 Historial</div>
+</div>
+
+<!-- ═══════════════ TAB: REGISTRO ═══════════════ -->
+<div class="page active" id="tab-registro">
+
+  <!-- Seleccionar trabajador -->
+  <div class="card">
+    <div class="card-title">¿Quién eres?</div>
+    <div class="field">
+      <label>Selecciona tu nombre</label>
+      <select id="sel-trabajador" onchange="onSelectTrabajador()">
+        <option value="">— Elige un trabajador —</option>
+      </select>
+    </div>
+    <div id="worker-status" style="display:none">
+      <div id="worker-badge-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Verificación por PIN + foto de evidencia -->
+  <div class="card" id="cam-card" style="display:none">
+    <div class="card-title" id="cam-title">Verificar identidad</div>
+
+    <!-- Paso 1: PIN -->
+    <div id="pin-step">
+      <div class="field" style="margin-bottom:20px">
+        <label>Ingresa tu PIN de 4 dígitos</label>
+        <input id="input-pin" type="password" maxlength="4" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off"
+               placeholder="••••" style="letter-spacing:12px;font-size:28px;text-align:center"
+               onkeydown="if(event.key==='Enter')verificarPin()">
+      </div>
+      <button class="btn btn-amber" onclick="verificarPin()">🔐 Confirmar PIN</button>
+    </div>
+
+    <!-- Paso 2: Foto de evidencia (tras PIN correcto) -->
+    <div id="foto-step" style="display:none">
+      <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:14px">
+        ✅ PIN correcto — toma una foto de evidencia
+      </div>
+      <input type="file" id="input-foto" accept="image/*" capture="user"
+             style="display:none" onchange="onFotoSeleccionada(event)">
+      <div id="foto-drop" onclick="document.getElementById('input-foto').click()"
+           style="border:2px dashed rgba(245,168,0,.4);border-radius:12px;
+                  height:180px;display:flex;flex-direction:column;
+                  align-items:center;justify-content:center;gap:10px;cursor:pointer;
+                  background:rgba(245,168,0,.04);margin-bottom:14px">
+        <div style="font-size:40px">📸</div>
+        <div style="font-weight:700;font-size:14px">Tomar foto de evidencia</div>
+        <div style="font-size:11px;color:var(--muted)">Opcional pero recomendada</div>
+      </div>
+      <div class="foto-preview" id="foto-preview">
+        <img id="foto-img" src="" alt=""
+             style="border-radius:10px;width:100%;max-height:200px;object-fit:cover;display:block;margin-bottom:12px">
+      </div>
+      <div style="display:flex;gap:8px;flex-direction:column">
+        <button class="btn btn-green" onclick="registrarEvento()">✅ Registrar</button>
+        <button class="btn btn-outline" onclick="repetir()">📷 Cambiar foto</button>
+      </div>
+    </div>
+
+    <div id="result-box" class="result-box"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB: TRABAJADORES ═══════════════ -->
+<div class="page" id="tab-trabajadores">
+
+  <div class="card">
+    <div class="card-title">Registrar nuevo trabajador</div>
+    <div class="field"><label>Nombre completo</label><input id="nw-nombre" placeholder="Ej: Juan Pérez"></div>
+    <div class="field"><label>Cédula</label><input id="nw-cedula" type="number" placeholder="Ej: 1036677773" inputmode="numeric"></div>
+    <div class="field"><label>Cargo</label><input id="nw-cargo" placeholder="Ej: Conductor"></div>
+    <div class="field"><label>Salario básico mensual</label><input id="nw-salario" type="number" placeholder="Ej: 1423500"></div>
+    <div class="field">
+      <label>PIN de acceso (4 dígitos)</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input id="nw-pin" type="text" maxlength="4" inputmode="numeric" 
+               autocomplete="off" readonly
+               placeholder="Auto-generado"
+               style="letter-spacing:8px;font-size:22px;text-align:center;flex:1;background:var(--bg2)">
+        <button type="button" onclick="generarPinNuevo()" 
+                class="btn btn-outline btn-sm" style="white-space:nowrap">
+          🔄 Generar PIN
+        </button>
+      </div>
+      <small style="color:var(--muted);font-size:11px">El PIN se genera automáticamente. Compártelo con el trabajador.</small>
+    </div>
+
+    <div class="card-title" style="margin-top:4px">Foto de referencia</div>
+    <input type="file" id="input-foto-nw" accept="image/*" capture="user"
+           style="display:none" onchange="onFotoNWSeleccionada(event)">
+    <div id="foto-drop-nw" onclick="document.getElementById('input-foto-nw').click()"
+         style="border:2px dashed rgba(245,168,0,.4);border-radius:12px;
+                height:160px;display:flex;flex-direction:column;
+                align-items:center;justify-content:center;gap:8px;cursor:pointer;
+                background:rgba(245,168,0,.04);margin-bottom:12px">
+      <div style="font-size:36px">📷</div>
+      <div style="font-size:13px;font-weight:600">Tomar foto de referencia</div>
+    </div>
+    <div class="foto-preview" id="foto-preview-nw" style="margin-bottom:12px">
+      <img id="foto-img-nw" src="" alt=""
+           style="border-radius:10px;width:100%;max-height:200px;object-fit:cover;display:block">
+    </div>
+    <button class="btn btn-green" onclick="guardarTrabajador()">✅ Guardar trabajador</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Trabajadores registrados</div>
+    <div id="lista-trabajadores">
+      <div class="empty-state"><div class="icon">👤</div><p>No hay trabajadores registrados aún.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB: HISTORIAL ═══════════════ -->
+<div class="page" id="tab-historial">
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Periodo a exportar (Quincena)</div>
+    <div style="display:flex;gap:10px">
+      <div class="field" style="flex:1;margin-bottom:0">
+        <label>Mes</label>
+        <select id="sel-mes-export"></select>
+      </div>
+      <div class="field" style="flex:0 0 100px;margin-bottom:0">
+        <label>Año</label>
+        <select id="sel-anio-export"></select>
+      </div>
+    </div>
+    <div class="field" style="margin-top:10px;margin-bottom:0">
+      <label>Quincena</label>
+      <select id="sel-quincena-export">
+        <option value="1">Quincena 1 (día 1 al 15)</option>
+        <option value="2">Quincena 2 (día 16 al fin de mes)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="export-bar">
+    <button class="btn btn-green btn-sm" style="flex:1" onclick="exportarExcelNomina()">⬇ Exportar día</button>
+    <button class="btn btn-outline btn-sm" style="flex:1" onclick="exportarQuincenaCompleta()">📊 Exportar Quincena</button>
+    <button class="btn btn-outline btn-sm" style="flex:1" onclick="limpiarHistorial()">🗑 Limpiar hoy</button>
+  </div>
+  <div id="lista-historial">
+    <div class="empty-state"><div class="icon">📋</div><p>Sin registros hoy.</p></div>
+  </div>
+</div>
+
+<!-- ═══════════════ OVERLAYS ═══════════════ -->
+<div class="verif-overlay" id="verif-overlay">
+  <div class="verif-icon">🔍</div>
+  <div class="verif-txt">Verificando identidad...</div>
+  <div class="verif-sub">Claude está analizando la foto</div>
+</div>
+
+
+<!-- Banner instalar como app -->
+<div id="install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;
+  background:var(--bg2);border-top:2px solid var(--amber);padding:14px 20px;
+  z-index:999;display:none;align-items:center;justify-content:space-between;gap:12px">
+  <div style="font-size:13px;font-weight:600">
+    📲 Instala Quick Line como app
+  </div>
+  <div style="display:flex;gap:8px">
+    <button onclick="instalarPWA()" style="background:var(--amber);color:#000;border:none;
+      padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+      Instalar
+    </button>
+    <button onclick="document.getElementById('install-banner').style.display='none'"
+      style="background:transparent;color:var(--muted);border:1px solid var(--border);
+      padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer">
+      Ahora no
+    </button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────
+//  ESTADO
+// ─────────────────────────────────────────
+let trabajadores = [];   // se carga desde Firestore
+let registros    = [];   // se carga desde Firestore (solo del día, en tiempo real)
+let fotoBase64 = null, fotoNWBase64 = null;
+let trabajadorSeleccionado = null;
+let estadoTurno = null; // 'entrada' | 'salida' | 'completo'
+let rolActual = null;   // 'admin' | 'trabajador'
+let ubicacionActual = null; // {lat, lng, precision}
+let fbReady = false;
+
+const ADMIN_PASS = 'quickline2026'; // clave simple del administrador
+
+const MESES_NOMBRE = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
+                       'JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
+// ─────────────────────────────────────────
+//  SELECTORES DE PERIODO (mes/año/quincena) PARA EXPORTAR
+// ─────────────────────────────────────────
+function poblarSelectoresExport(){
+  const selMes = document.getElementById('sel-mes-export');
+  const selAnio = document.getElementById('sel-anio-export');
+  const selQuin = document.getElementById('sel-quincena-export');
+  if(!selMes || !selAnio || !selQuin) return;
+
+  // Solo poblar/fijar valores por defecto UNA vez. Si ya se pobló antes,
+  // no tocar la selección: así respetamos lo que el usuario haya elegido.
+  if(selMes.options.length) return;
+
+  const hoyDate = new Date();
+  const anioActual = hoyDate.getFullYear();
+  const mesActual = hoyDate.getMonth(); // 0-11
+  const quincenaActual = hoyDate.getDate() <= 15 ? 1 : 2;
+
+  selMes.innerHTML = MESES_NOMBRE.map((m,i)=>`<option value="${i}">${m}</option>`).join('');
+  const anios = [anioActual-1, anioActual, anioActual+1];
+  selAnio.innerHTML = anios.map(a=>`<option value="${a}">${a}</option>`).join('');
+
+  // Fijar por defecto el mes/año/quincena actuales (el usuario puede cambiarlos luego)
+  selMes.value = String(mesActual);
+  selAnio.value = String(anioActual);
+  selQuin.value = String(quincenaActual);
+}
+
+// ─────────────────────────────────────────
+//  FIREBASE — espera a que cargue el módulo
+// ─────────────────────────────────────────
+window.addEventListener('firebase-ready', async () => {
+  fbReady = true;
+  const dot = document.getElementById('conn-dot');
+  const cs  = document.getElementById('conn-status');
+  if(dot) dot.style.background = 'var(--green)';
+  if(cs && cs.lastChild) cs.lastChild.textContent = ' Conectado';
+  try {
+    await cargarTrabajadores();
+    escucharRegistrosHoy();
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    if(dot) dot.style.background = 'var(--red)';
+    if(cs && cs.lastChild) cs.lastChild.textContent = ' Error: ' + e.message;
+  }
+});
+
+// Si tarda mucho en cargar el módulo, avisar
+setTimeout(()=>{
+  if(!fbReady){
+    const dot=document.getElementById('conn-dot');
+    const cs=document.getElementById('conn-status');
+    if(dot) dot.style.background='var(--red)';
+    if(cs && cs.lastChild) cs.lastChild.textContent=' Sin conexión — verifica tu internet';
+    // Mostrar botón de reintento
+    const loginScreen = document.getElementById('login-screen');
+    if(loginScreen){
+      const retryDiv = document.createElement('div');
+      retryDiv.style.cssText='text-align:center;margin-top:16px;';
+      retryDiv.innerHTML='<button onclick="location.reload()" style="background:var(--amber);color:#000;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🔄 Reintentar conexión</button>';
+      const card = loginScreen.querySelector('.card');
+      if(card) card.appendChild(retryDiv);
+    }
+  }
+}, 8000);
+
+async function cargarTrabajadores(){
+  try{
+    const snap = await window.FB.getDocs(window.FB.collection(window.FB.db, 'trabajadores'));
+    trabajadores = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    poblarSelect();
+    if(rolActual==='admin') renderTrabajadores();
+  }catch(e){
+    console.error('Error cargando trabajadores:', e);
+    toast('Error cargando trabajadores: '+e.message,'err');
+  }
+}
+
+function escucharRegistrosHoy(){
+  const hoyStr = hoy();
+  const q = window.FB.query(
+    window.FB.collection(window.FB.db, 'registros'),
+    window.FB.where('fecha', '==', hoyStr)
+  );
+  window.FB.onSnapshot(q, snap=>{
+    registros = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(rolActual) renderHistorial();
+    if(trabajadorSeleccionado) onSelectTrabajador();
+  }, err=>{
+    console.error('Error escuchando registros:', err);
+  });
+}
+
+// ─────────────────────────────────────────
+//  LOGIN / ROLES
+// ─────────────────────────────────────────
+function mostrarLoginAdmin(){
+  document.getElementById('admin-login-box').style.display='block';
+  document.getElementById('admin-pass').focus();
+}
+
+function loginAdmin(){
+  const pass = document.getElementById('admin-pass').value;
+  if(pass !== ADMIN_PASS){
+    toast('Clave incorrecta','err'); return;
+  }
+  rolActual='admin';
+  entrarApp();
+}
+
+function loginTrabajador(){
+  rolActual='trabajador';
+  entrarApp();
+}
+
+function entrarApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-main').style.display='block';
+
+  const badge=document.getElementById('rol-badge');
+  badge.textContent = rolActual==='admin' ? '🔑 Administrador' : '👷 Trabajador';
+
+  // Trabajador no ve la pestaña de gestión de trabajadores ni historial
+  const tabW = document.getElementById('tab-btn-trabajadores');
+  if(tabW) tabW.style.display = rolActual==='admin' ? 'block' : 'none';
+
+  const tabH = document.getElementById('tab-btn-historial');
+  if(tabH) tabH.style.display = rolActual==='admin' ? 'block' : 'none';
+
+  goTab('registro');
+  pedirUbicacion();
+}
+
+function cerrarSesion(){
+  rolActual=null;
+  trabajadorSeleccionado=null;
+  document.getElementById('app-main').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('admin-pass').value='';
+  document.getElementById('admin-login-box').style.display='none';
+}
+
+// ─────────────────────────────────────────
+//  GEOLOCALIZACIÓN
+// ─────────────────────────────────────────
+function pedirUbicacion(){
+  if(!navigator.geolocation){
+    toast('Tu navegador no soporta ubicación','err'); return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      ubicacionActual = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        precision: Math.round(pos.coords.accuracy)
+      };
+    },
+    err=>{
+      console.warn('Geolocalización no disponible:', err.message);
+      ubicacionActual = null;
+    },
+    {enableHighAccuracy:true, timeout:8000}
+  );
+}
+
+// ─────────────────────────────────────────
+//  UTILS
+// ─────────────────────────────────────────
+function toast(msg, tipo='info'){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='show '+tipo;
+  clearTimeout(el._t); el._t=setTimeout(()=>el.className='',2800);
+}
+
+function fmt(ts){ return ts ? new Date(ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : '—'; }
+function fmtDur(ms){
+  if(!ms) return '—';
+  const h=Math.floor(ms/3600000), m=Math.floor((ms%3600000)/60000);
+  return `${h}h ${m}m`;
+}
+
+function hoy(){
+  return new Date().toLocaleDateString('es-CO',{year:'numeric',month:'2-digit',day:'2-digit'});
+}
+
+// ─────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────
+function goTab(id){
+  // Bloquear acceso a pestañas restringidas si no es admin
+  if(rolActual !== 'admin' && (id === 'historial' || id === 'trabajadores')){
+    toast('⛔ Acceso restringido — solo administrador', 'err');
+    return;
+  }
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const ids=['registro','trabajadores','historial'];
+    t.classList.toggle('active', ids[i]===id);
+  });
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if(id==='trabajadores') renderTrabajadores();
+  if(id==='historial'){ renderHistorial(); poblarSelectoresExport(); }
+  if(id!=='registro') pararCamaras();
+}
+
+// ─────────────────────────────────────────
+//  FECHA HEADER
+// ─────────────────────────────────────────
+function updateFecha(){
+  document.getElementById('fecha-hdr').textContent =
+    new Date().toLocaleDateString('es-CO',{weekday:'short',day:'2-digit',month:'short'});
+}
+updateFecha();
+
+// ─────────────────────────────────────────
+//  SELECT TRABAJADOR
+// ─────────────────────────────────────────
+function poblarSelect(){
+  const sel=document.getElementById('sel-trabajador');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Elige un trabajador —</option>' +
+    trabajadores.map((w,i)=>`<option value="${i}">${w.nombre} · ${w.cargo}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+
+function onSelectTrabajador(){
+  const idx=document.getElementById('sel-trabajador').value;
+  const ws=document.getElementById('worker-status');
+  const cc=document.getElementById('cam-card');
+  pararCamaras();
+  fotoBase64=null;
+
+  if(idx===''){
+    ws.style.display='none'; cc.style.display='none';
+    trabajadorSeleccionado=null; return;
+  }
+
+  trabajadorSeleccionado=trabajadores[parseInt(idx)];
+  ws.style.display='block';
+
+  // ¿tiene registro hoy?
+  const reg=getRegHoy(trabajadorSeleccionado.nombre);
+  if(reg && reg.salida){
+    estadoTurno='completo';
+    document.getElementById('worker-badge-wrap').innerHTML=
+      `<span class="badge badge-blue">✅ Turno completo hoy</span>
+       <div style="font-size:12px;color:var(--muted);margin-top:6px">
+         Entrada: ${fmt(reg.entrada)} · Salida: ${fmt(reg.salida)} · ${fmtDur(reg.salida-reg.entrada)}
+       </div>`;
+    cc.style.display='none';
+  } else {
+    estadoTurno = reg ? 'salida' : 'entrada';
+    const label = estadoTurno==='entrada' ? 'Registrar entrada' : 'Registrar salida';
+    document.getElementById('worker-badge-wrap').innerHTML=
+      `<span class="badge ${estadoTurno==='entrada'?'badge-green':'badge-amber'}">
+        ${estadoTurno==='entrada'?'🟢 Sin entrada hoy':'🟡 Entrada registrada — pendiente salida'}
+       </span>`;
+    document.getElementById('cam-title').textContent = label;
+    cc.style.display='block';
+    resetCamUI();
+  }
+}
+
+function getRegHoy(nombre){
+  return registros.find(r=>r.nombre===nombre && r.fecha===hoy()) || null;
+}
+
+// ─────────────────────────────────────────
+//  CÁMARA REGISTRO
+// ─────────────────────────────────────────
+// Convierte File a base64 redimensionado
+function resizeFileToB64(file, maxPx=512){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const scale=Math.min(1,maxPx/Math.max(img.width,img.height));
+        const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+        const c=document.createElement('canvas');
+        c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(c.toDataURL('image/jpeg',0.82).split(',')[1]);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function verificarPin(){
+  const pinIngresado=document.getElementById('input-pin').value.trim();
+  if(!pinIngresado||pinIngresado.length!==4){
+    toast('Ingresa tu PIN de 4 dígitos','err'); return;
+  }
+  if(!trabajadorSeleccionado){
+    toast('Selecciona un trabajador primero','err'); return;
+  }
+  if(pinIngresado!==String(trabajadorSeleccionado.pin)){
+    document.getElementById('input-pin').value='';
+    toast('❌ PIN incorrecto — intenta de nuevo','err'); return;
+  }
+  document.getElementById('pin-step').style.display='none';
+  document.getElementById('foto-step').style.display='block';
+  toast('✅ PIN correcto','ok');
+}
+
+function onFotoSeleccionada(e){
+  const file=e.target.files[0]; if(!file) return;
+  resizeFileToB64(file,512).then(b64=>{
+    fotoBase64=b64;
+    document.getElementById('foto-img').src='data:image/jpeg;base64,'+b64;
+    document.getElementById('foto-preview').style.display='block';
+    document.getElementById('foto-drop').style.display='none';
+    document.getElementById('post-actions').style.display='flex';
+    document.getElementById('result-box').style.display='none';
+  });
+  e.target.value='';
+}
+
+function repetir(){
+  fotoBase64=null;
+  const fp=document.getElementById('foto-preview');
+  if(fp) fp.style.display='none';
+  const fd=document.getElementById('foto-drop');
+  if(fd) fd.style.display='flex';
+}
+
+function resetCamUI(){
+  fotoBase64=null;
+  const pip=document.getElementById('input-pin');
+  if(pip) pip.value='';
+  const ps=document.getElementById('pin-step');
+  if(ps) ps.style.display='block';
+  const fs=document.getElementById('foto-step');
+  if(fs) fs.style.display='none';
+  const fp=document.getElementById('foto-preview');
+  if(fp) fp.style.display='none';
+  const fd=document.getElementById('foto-drop');
+  if(fd) fd.style.display='flex';
+  const rb=document.getElementById('result-box');
+  if(rb) rb.style.display='none';
+}
+
+function abrirCamara(){ /* reemplazado por input file */ }
+function pararCamaras(){ streamReg=null; streamNW=null; }
+
+// ─────────────────────────────────────────
+//  VERIFICAR CON CLAUDE
+// ─────────────────────────────────────────
+// Limpia el base64: elimina prefijo data:... si existe y espacios/saltos
+function cleanB64(str){
+  if(!str) return null;
+  const s = str.trim();
+  if(s.includes(',')) return s.split(',')[1].trim();
+  return s.trim();
+}
+
+// Redimensiona un base64 a max 512px para no saturar la API ni localStorage
+function resizeB64(b64, maxPx=512){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const scale=Math.min(1, maxPx/Math.max(img.width,img.height));
+      const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+      const c=document.createElement('canvas');
+      c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(c.toDataURL('image/jpeg',0.80).split(',')[1]);
+    };
+    img.onerror=()=>resolve(b64); // si falla, usar original
+    img.src='data:image/jpeg;base64,'+b64;
+  });
+}
+
+async function verificar(){
+  if(!fotoBase64){ toast('Primero toma la foto','err'); return; }
+  if(!trabajadorSeleccionado){ toast('Selecciona un trabajador','err'); return; }
+
+  const fotoRef = cleanB64(trabajadorSeleccionado.foto);
+  if(!fotoRef){ toast('Este trabajador no tiene foto de referencia válida','err'); return; }
+
+  document.getElementById('verif-overlay').classList.add('show');
+  document.getElementById('btn-verificar').disabled=true;
+
+  try {
+    // Redimensionar ambas fotos antes de enviar
+    const [imgRef, imgSelfie] = await Promise.all([
+      resizeB64(fotoRef, 512),
+      resizeB64(cleanB64(fotoBase64), 512)
+    ]);
+
+    if(!imgRef || !imgSelfie) throw new Error('Error procesando imágenes');
+
+    const prompt = `Tienes dos imágenes. La PRIMERA es la foto de referencia del trabajador "${trabajadorSeleccionado.nombre}". La SEGUNDA es una selfie tomada ahora para verificar su identidad.
+
+¿Son la misma persona? Compara rasgos faciales, estructura ósea, tono de piel. Ignora iluminación, ángulo, ropa o expresión.
+
+Responde ÚNICAMENTE con JSON válido, sin texto antes ni después:
+{"coincide":true,"confianza":"alta","razon":"texto breve"}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: [
+            { type:'image', source:{type:'base64', media_type:'image/jpeg', data: imgRef} },
+            { type:'image', source:{type:'base64', media_type:'image/jpeg', data: imgSelfie} },
+            { type:'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if(!response.ok){
+      const err = await response.json().catch(()=>({}));
+      throw new Error(err?.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if(data.error) throw new Error(data.error.message);
+
+    const txt = data.content?.map(c=>c.text||'').join('').trim();
+    if(!txt) throw new Error('Respuesta vacía de Claude');
+
+    let result;
+    try {
+      const clean = txt.replace(/```json|```/g,'').trim();
+      const start = clean.indexOf('{'), end = clean.lastIndexOf('}');
+      result = JSON.parse(clean.slice(start, end+1));
+    } catch {
+      throw new Error('Formato de respuesta inesperado: '+txt.slice(0,80));
+    }
+
+    document.getElementById('verif-overlay').classList.remove('show');
+    mostrarResultado(result);
+
+  } catch(e) {
+    document.getElementById('verif-overlay').classList.remove('show');
+    document.getElementById('btn-verificar').disabled=false;
+    console.error('Error verificar:', e);
+    toast('❌ '+e.message,'err');
+  }
+}
+
+function mostrarResultado(result){
+  const box=document.getElementById('result-box');
+  box.style.display='block';
+
+  if(result.coincide && result.confianza !== 'baja'){
+    box.className='result-box ok';
+    box.innerHTML=`
+      <div class="result-title">✅ Identidad verificada</div>
+      <div class="result-sub">Confianza: ${result.confianza} · ${result.razon}</div>`;
+
+    // Registrar automáticamente
+    registrarEvento();
+  } else {
+    box.className='result-box fail';
+    box.innerHTML=`
+      <div class="result-title">❌ No coincide</div>
+      <div class="result-sub">${result.razon}</div>`;
+    document.getElementById('btn-verificar').disabled=false;
+    toast('Verificación fallida — intenta de nuevo','err');
+  }
+}
+
+// ─────────────────────────────────────────
+//  REGISTRAR ENTRADA / SALIDA
+// ─────────────────────────────────────────
+async function registrarEvento(){
+  const nombre=trabajadorSeleccionado.nombre;
+  const ahora=Date.now();
+  const reg=getRegHoy(nombre);
+  const ubic = ubicacionActual
+    ? {lat:ubicacionActual.lat, lng:ubicacionActual.lng, precision:ubicacionActual.precision}
+    : null;
+
+  try{
+    if(!reg){
+      // ENTRADA
+      await window.FB.addDoc(window.FB.collection(window.FB.db,'registros'),{
+        nombre, cargo:trabajadorSeleccionado.cargo, trabajadorId:trabajadorSeleccionado.id||null,
+        fecha:hoy(), entrada:ahora, salida:null,
+        ubicEntrada:ubic, ubicSalida:null,
+        creado: window.FB.serverTimestamp()
+      });
+      toast(`✅ Entrada registrada — ${fmt(ahora)}`,'ok');
+    } else {
+      // SALIDA
+      await window.FB.setDoc(
+        window.FB.doc(window.FB.db,'registros',reg.id),
+        {...reg, salida:ahora, ubicSalida:ubic},
+        {merge:true}
+      );
+      const dur=fmtDur(ahora-reg.entrada);
+      toast(`✅ Salida registrada — ${fmt(ahora)} · ${dur}`,'ok');
+    }
+    setTimeout(()=>{ onSelectTrabajador(); },1200);
+  }catch(e){
+    console.error('Error registrando evento:', e);
+    toast('❌ Error guardando registro: '+e.message,'err');
+    document.getElementById('btn-verificar').disabled=false;
+  }
+}
+
+// ─────────────────────────────────────────
+//  TRABAJADORES — NUEVA CÁMARA
+// ─────────────────────────────────────────
+function onFotoNWSeleccionada(e){
+  const file=e.target.files[0]; if(!file) return;
+  resizeFileToB64(file,512).then(b64=>{
+    fotoNWBase64=b64;
+    document.getElementById('foto-img-nw').src='data:image/jpeg;base64,'+b64;
+    document.getElementById('foto-preview-nw').style.display='block';
+    document.getElementById('foto-drop-nw').style.display='none';
+    toast('Foto de referencia lista','ok');
+  });
+  e.target.value='';
+}
+
+function abrirCamaraNW(){ document.getElementById('input-foto-nw').click(); }
+function capturarNW(){ document.getElementById('input-foto-nw').click(); }
+function repetirNW(){
+  fotoNWBase64=null;
+  document.getElementById('foto-preview-nw').style.display='none';
+  document.getElementById('foto-drop-nw').style.display='flex';
+}
+
+async function guardarTrabajador(){
+  const nombre=document.getElementById('nw-nombre').value.trim();
+  const cedula=document.getElementById('nw-cedula').value.trim();
+  const cargo=document.getElementById('nw-cargo').value.trim();
+  const salario=parseFloat(document.getElementById('nw-salario').value)||0;
+  const pin=document.getElementById('nw-pin').value.trim();
+
+  if(!nombre||!cargo){ toast('Completa nombre y cargo','err'); return; }
+  if(!cedula){ toast('Ingresa la cédula del trabajador','err'); return; }
+  if(!salario){ toast('Ingresa el salario básico','err'); return; }
+  if(!pin||pin.length!==4||isNaN(pin)){ toast('Genera el PIN primero','err'); return; }
+  if(!fotoNWBase64){ toast('Toma una foto de referencia del trabajador','err'); return; }
+
+  // ── Validar duplicados por cédula (identificador único) ─────────────
+  const dupCedula = trabajadores.find(t =>
+    String(t.cedula).trim() === String(cedula).trim());
+  if(dupCedula){
+    toast(`❌ Ya existe el trabajador ${dupCedula.nombre} con cédula ${cedula}`, 'err');
+    return;
+  }
+  const dupPin = trabajadores.find(t => t.pin === pin);
+  if(dupPin){
+    toast('❌ Este PIN ya está en uso. Genera uno nuevo.', 'err');
+    generarPinNuevo();
+    return;
+  }
+
+  const fotoGuardar = cleanB64(fotoNWBase64);
+
+  try{
+    await window.FB.addDoc(window.FB.collection(window.FB.db,'trabajadores'),{
+      nombre, cedula, cargo, salario, pin, foto:fotoGuardar, creado:Date.now()
+    });
+    await cargarTrabajadores();
+
+    // Reset form
+    document.getElementById('nw-nombre').value='';
+  generarPinNuevo();
+    document.getElementById('nw-cargo').value='';
+    document.getElementById('nw-salario').value='';
+    document.getElementById('nw-pin').value='';
+    fotoNWBase64=null;
+    document.getElementById('foto-preview-nw').style.display='none';
+    document.getElementById('foto-drop-nw').style.display='flex';
+
+    toast(`✅ ${nombre} registrado correctamente`,'ok');
+  }catch(e){
+    console.error('Error guardando trabajador:', e);
+    toast('❌ Error: '+e.message,'err');
+  }
+}
+
+async function eliminarTrabajador(i){
+  const w = trabajadores[i];
+  if(!confirm(`¿Eliminar a ${w.nombre}?`)) return;
+  try{
+    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    await deleteDoc(window.FB.doc(window.FB.db,'trabajadores',w.id));
+    await cargarTrabajadores();
+    toast('Trabajador eliminado','info');
+  }catch(e){
+    console.error('Error eliminando:', e);
+    toast('❌ Error: '+e.message,'err');
+  }
+}
+
+function renderTrabajadores(){
+  const el=document.getElementById('lista-trabajadores');
+  if(!trabajadores.length){
+    el.innerHTML=`<div class="empty-state"><div class="icon">👤</div><p>No hay trabajadores registrados aún.</p></div>`;
+    return;
+  }
+  el.innerHTML=trabajadores.map((w,i)=>`
+    <div class="worker-item">
+      ${w.foto
+        ? `<img class="worker-avatar" src="data:image/jpeg;base64,${w.foto}" alt="">`
+        : `<div class="worker-avatar-ph">👤</div>`}
+      <div class="worker-info">
+        <div class="worker-name">${w.nombre}</div>
+        <div class="worker-cargo">${w.cargo} · ${w.salario?'$'+Math.round(w.salario).toLocaleString('es-CO'):'Sin salario'}</div>
+        <div class="worker-cargo" style="font-size:11px;color:var(--muted)">CC: ${w.cedula||'Sin cédula'}</div>
+      </div>
+      <div class="worker-actions">
+        <button class="btn btn-outline btn-sm" onclick="eliminarTrabajador(${i})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────
+//  HISTORIAL
+// ─────────────────────────────────────────
+function renderHistorial(){
+  const el=document.getElementById('lista-historial');
+  const hoyStr=hoy();
+  const regsHoy=registros.filter(r=>r.fecha===hoyStr).reverse();
+
+  if(!regsHoy.length){
+    el.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>Sin registros hoy.</p></div>`;
+    return;
+  }
+
+  el.innerHTML=regsHoy.map(r=>{
+    const clase=r.salida?'completo':r.entrada?'entrada':'pendiente';
+    const dur=r.salida?fmtDur(r.salida-r.entrada):'En turno';
+    return `<div class="reg-item ${clase}">
+      <div class="reg-header">
+        <div class="reg-name">${r.nombre}</div>
+        <span class="badge ${r.salida?'badge-blue':r.entrada?'badge-green':'badge-amber'}">
+          ${r.salida?'✅ Completo':r.entrada?'🟢 En turno':'⏳ Pendiente'}
+        </span>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">${r.cargo} · ${dur}</div>
+      <div class="reg-times">
+        <div class="reg-time-block">
+          <div class="reg-time-label">🟢 Entrada</div>
+          <div class="reg-time-val" style="color:var(--green)">${fmt(r.entrada)}</div>
+        </div>
+        <div class="reg-time-block">
+          <div class="reg-time-label">🔴 Salida</div>
+          <div class="reg-time-val" style="color:${r.salida?'var(--red)':'var(--muted)'}">${fmt(r.salida)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+//  EXPORTAR EXCEL
+// ─────────────────────────────────────────
+function exportarExcel(){
+  const hoyStr=hoy();
+  const regsHoy=registros.filter(r=>r.fecha===hoyStr);
+
+  if(!regsHoy.length){ toast('No hay registros hoy para exportar','err'); return; }
+
+  const ubicTxt = u => u ? `${u.lat.toFixed(5)}, ${u.lng.toFixed(5)}` : 'Sin ubicación';
+
+  const data=[
+    ['Nombre','Cargo','Fecha','Hora Entrada','Hora Salida','Horas Trabajadas','Ubicación Entrada','Ubicación Salida'],
+    ...regsHoy.map(r=>([
+      r.nombre, r.cargo, r.fecha,
+      r.entrada ? new Date(r.entrada).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : '',
+      r.salida  ? new Date(r.salida).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : 'Sin registrar',
+      r.salida  ? fmtDur(r.salida-r.entrada) : '',
+      ubicTxt(r.ubicEntrada),
+      ubicTxt(r.ubicSalida)
+    ]))
+  ];
+
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(data);
+
+  // Anchos de columna
+  ws['!cols']=[{wch:25},{wch:20},{wch:14},{wch:14},{wch:14},{wch:18},{wch:22},{wch:22}];
+
+  // Estilo encabezado (fila 1)
+  ['A1','B1','C1','D1','E1','F1','G1','H1'].forEach(cell=>{
+    if(ws[cell]) ws[cell].s={
+      font:{bold:true,color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:'0D2B5E'}},
+      alignment:{horizontal:'center'}
+    };
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Asistencia');
+
+  const fecha=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `Asistencia_QuickLine_${fecha}.xlsx`);
+  toast('✅ Excel descargado correctamente','ok');
+}
+
+async function limpiarHistorial(){
+  const hoyStr=hoy();
+  const regsHoy=registros.filter(r=>r.fecha===hoyStr);
+  if(!regsHoy.length){ toast('No hay registros de hoy','info'); return; }
+  if(!confirm(`¿Eliminar ${regsHoy.length} registros de hoy?`)) return;
+  try{
+    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    await Promise.all(regsHoy.map(r=>deleteDoc(window.FB.doc(window.FB.db,'registros',r.id))));
+    toast('Registros eliminados','info');
+  }catch(e){
+    console.error('Error eliminando historial:', e);
+    toast('❌ Error: '+e.message,'err');
+  }
+}
+
+
+// ─────────────────────────────────────────
+//  PWA — Instalar como app
+// ─────────────────────────────────────────
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const banner = document.getElementById('install-banner');
+  if(banner) banner.style.display = 'flex';
+});
+
+function instalarPWA() {
+  const banner = document.getElementById('install-banner');
+  if(banner) banner.style.display = 'none';
+  if(!deferredPrompt) {
+    // iPhone — mostrar instrucciones manuales
+    toast('En Safari: toca Compartir → "Agregar a pantalla de inicio" 📲', 'info');
+    return;
+  }
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(choice => {
+    if(choice.outcome === 'accepted') toast('✅ App instalada correctamente', 'ok');
+    deferredPrompt = null;
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  toast('✅ Quick Line instalada como app', 'ok');
+  deferredPrompt = null;
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPORTAR QUINCENA COMPLETA — todos los días y trabajadores
+// ═══════════════════════════════════════════════════════════════════
+async function exportarQuincenaCompleta() {
+
+  if (!fbReady) { toast('Sin conexión a Firebase', 'err'); return; }
+
+  // Determinar quincena a exportar según lo elegido por el usuario
+  // (antes esto siempre se calculaba a partir de la fecha de hoy, por eso
+  //  no se podía descargar el mes/quincena que el usuario quería)
+  const selMes  = document.getElementById('sel-mes-export');
+  const selAnio = document.getElementById('sel-anio-export');
+  const selQuin = document.getElementById('sel-quincena-export');
+
+  poblarSelectoresExport(); // asegura que los selects tengan opciones aunque no se haya visitado la pestaña
+
+  const mes = selMes && selMes.value !== '' ? parseInt(selMes.value) : new Date().getMonth();
+  const anio = selAnio && selAnio.value !== '' ? parseInt(selAnio.value) : new Date().getFullYear();
+  const nQuincena = selQuin && selQuin.value !== '' ? parseInt(selQuin.value) : (new Date().getDate() <= 15 ? 1 : 2);
+
+  // Fechas de la quincena
+  const diaIni = nQuincena === 1 ? 1 : 16;
+  const diaFin = nQuincena === 1 ? 15 : new Date(anio, mes+1, 0).getDate();
+
+  toast(`Cargando quincena ${nQuincena} de ${MESES_NOMBRE[mes]} ${anio}... espera`, 'info');
+
+  try {
+    // Cargar TODOS los registros de la quincena desde Firebase
+    const { getDocs, collection, query, where } = window.FB;
+
+    // Generar array de fechas de la quincena
+    const fechas = [];
+    for (let d = diaIni; d <= diaFin; d++) {
+      const f = new Date(anio, mes, d);
+      fechas.push(f.toLocaleDateString('es-CO', {year:'numeric',month:'2-digit',day:'2-digit'}));
+    }
+
+    // Consultar registros de todo el período
+    const snap = await getDocs(query(
+      collection(window.FB.db, 'registros'),
+      where('fecha', '>=', fechas[0]),
+      where('fecha', '<=', fechas[fechas.length-1])
+    ));
+
+    const todosRegistros = snap.docs.map(d => ({id:d.id, ...d.data()}));
+
+    if (!todosRegistros.length) {
+      toast('No hay registros en esta quincena', 'err');
+      return;
+    }
+
+    // Organizar por trabajador y fecha
+    // { nombre: { fecha: {entrada, salida, cargo} } }
+    const porTrabajador = {};
+    trabajadores.forEach(t => {
+      porTrabajador[t.nombre] = { info: t, dias: {} };
+    });
+
+    todosRegistros.forEach(r => {
+      if (!r.nombre || !r.fecha) return;
+      if (!porTrabajador[r.nombre]) {
+        const trab = trabajadores.find(t => t.nombre === r.nombre);
+        porTrabajador[r.nombre] = { info: trab || {nombre:r.nombre, cargo:r.cargo||'', salario:1750904, cedula:''}, dias: {} };
+      }
+      if (r.entrada && r.salida) {
+        porTrabajador[r.nombre].dias[r.fecha] = r;
+      }
+    });
+
+    const wb = XLSX.utils.book_new();
+
+    // ══════════════════════════════════════════════════════════════
+    // HOJA 1 — RESUMEN QUINCENA (una fila por trabajador)
+    // ══════════════════════════════════════════════════════════════
+    const mesesNombre = MESES_NOMBRE; // usa el listado global de meses
+
+    const HDR_RES = [
+      'N°','CÉDULA','NOMBRE','OFICIO','SALARIO BASE',
+      'DÍAS TRAB.','H.NETAS TOTAL',
+      'H.DIUR.ORD','H.DIUR.REC(+25%)','H.NOCT(+35%)',
+      'VAL.DIUR.ORD','VAL.DIUR.REC','VAL.NOCT',
+      'TOTAL DEVENGADO','ESTADO (mín. 84h)'
+    ];
+
+    const filasRes = [];
+    let numEmp = 0;
+
+    Object.values(porTrabajador).forEach(({info, dias}) => {
+      const salario = parseInt(info.salario) || 1750904;
+      const VH = salario / NOMINA.HORAS_MES;
+      let diasTrab=0, h_netas=0, h_diur_ord=0, h_diur_rec=0, h_noct=0;
+      let v_diur_ord=0, v_diur_rec=0, v_noct=0;
+
+      fechas.forEach(fecha => {
+        const reg = dias[fecha];
+        if (reg && reg.entrada && reg.salida) {
+          diasTrab++;
+          const calc = calcularHoras(reg.entrada, reg.salida, salario);
+          h_netas    += calc.netas;
+          h_diur_ord += calc.h_diur_ord;
+          h_diur_rec += calc.h_diur_rec;
+          h_noct     += calc.h_noct;
+          v_diur_ord += calc.val_diur_ord;
+          v_diur_rec += calc.val_diur_rec;
+          v_noct     += calc.val_noct;
+        }
+      });
+
+      if (diasTrab === 0) return; // omitir si no trabajó
+
+      numEmp++;
+      const total = v_diur_ord + v_diur_rec + v_noct;
+      const hMin = 84;
+      const diff = +(h_netas - hMin).toFixed(1);
+      const estado = diff >= 0
+        ? `✅ CUMPLE  +${diff}h sobre 84h`
+        : `⚠ FALTAN  ${diff}h para 84h`;
+
+      filasRes.push([
+        numEmp,
+        info.cedula || '',
+        info.nombre || '',
+        info.cargo || info.oficio || '',
+        salario,
+        diasTrab,
+        +h_netas.toFixed(2),
+        +h_diur_ord.toFixed(2),
+        +h_diur_rec.toFixed(2),
+        +h_noct.toFixed(2),
+        Math.round(v_diur_ord),
+        Math.round(v_diur_rec),
+        Math.round(v_noct),
+        Math.round(total),
+        estado
+      ]);
+    });
+
+    // Totales
+    const sumCol = (ci) => filasRes.reduce((s,r)=>s+(r[ci]||0),0);
+    const cumplen = filasRes.filter(r => r[14] && r[14].startsWith('✅')).length;
+    const totRes = [
+      '','','TOTALES','','',
+      sumCol(5),
+      +sumCol(6).toFixed(2),
+      +sumCol(7).toFixed(2),
+      +sumCol(8).toFixed(2),
+      +sumCol(9).toFixed(2),
+      Math.round(sumCol(10)),
+      Math.round(sumCol(11)),
+      Math.round(sumCol(12)),
+      Math.round(sumCol(13)),
+      `${cumplen} de ${filasRes.length} cumplen 84h`
+    ];
+
+    const periodoStr = `Quincena ${nQuincena} — ${diaIni} al ${diaFin} de ${mesesNombre[mes]} ${anio}`;
+    const wsRes = XLSX.utils.aoa_to_sheet([
+      [`QUICK LINE TRANSPORTES S.A.S — RESUMEN ${periodoStr.toUpperCase()}`],
+      [`Período: ${periodoStr} | Trabajadores: ${numEmp} | Sin auxilio de transporte | Sin recargo festivos`],
+      [],
+      HDR_RES,
+      ...filasRes,
+      totRes
+    ]);
+    wsRes['!cols'] = [
+      {wch:4},{wch:13},{wch:28},{wch:20},{wch:13},
+      {wch:9},{wch:11},
+      {wch:11},{wch:15},{wch:11},
+      {wch:13},{wch:13},{wch:13},
+      {wch:16},{wch:22}
+    ];
+    XLSX.utils.book_append_sheet(wb, wsRes, `RESUMEN Q${nQuincena}`);
+
+    // ══════════════════════════════════════════════════════════════
+    // HOJA 2 — DETALLE DIARIO (una fila por trabajador por día)
+    // ══════════════════════════════════════════════════════════════
+    const HDR_DET = [
+      'N°','CÉDULA','NOMBRE','OFICIO','SALARIO',
+      'FECHA','DÍA','ENTRADA','SALIDA',
+      'H.BRUTAS','ALIM.','H.NETAS',
+      'H.DIUR.ORD','H.DIUR.REC','H.NOCT',
+      'VAL.DIUR.ORD','VAL.DIUR.REC','VAL.NOCT',
+      'TOTAL DÍA'
+    ];
+
+    const diasSemana = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+    const filasDet = [];
+    let nFila = 0;
+
+    Object.values(porTrabajador).forEach(({info, dias}) => {
+      const salario = parseInt(info.salario) || 1750904;
+      let hayRegistro = false;
+
+      fechas.forEach((fecha, idx) => {
+        const reg = dias[fecha];
+        if (!reg || !reg.entrada || !reg.salida) return;
+        hayRegistro = true;
+        nFila++;
+
+        const fechaDate = new Date(anio, mes, diaIni + idx);
+        const diaSem = diasSemana[fechaDate.getDay()];
+        const calc = calcularHoras(reg.entrada, reg.salida, salario);
+
+        filasDet.push([
+          nFila,
+          info.cedula || '',
+          info.nombre || '',
+          info.cargo || info.oficio || '',
+          salario,
+          fecha,
+          diaSem,
+          fmt2(reg.entrada),
+          fmt2(reg.salida),
+          calc.brutas,
+          calc.alim,
+          calc.netas,
+          calc.h_diur_ord,
+          calc.h_diur_rec,
+          calc.h_noct,
+          calc.val_diur_ord,
+          calc.val_diur_rec,
+          calc.val_noct,
+          calc.total
+        ]);
+      });
+    });
+
+    const wsDet = XLSX.utils.aoa_to_sheet([
+      [`QUICK LINE TRANSPORTES S.A.S — DETALLE DIARIO ${periodoStr.toUpperCase()}`],
+      [`Período: ${periodoStr} | Total registros: ${filasDet.length}`],
+      [],
+      HDR_DET,
+      ...filasDet
+    ]);
+    wsDet['!cols'] = [
+      {wch:4},{wch:13},{wch:24},{wch:18},{wch:13},
+      {wch:12},{wch:5},{wch:9},{wch:9},
+      {wch:9},{wch:6},{wch:9},
+      {wch:11},{wch:11},{wch:9},
+      {wch:13},{wch:13},{wch:13},
+      {wch:13}
+    ];
+    XLSX.utils.book_append_sheet(wb, wsDet, `DETALLE Q${nQuincena}`);
+
+    // ══════════════════════════════════════════════════════════════
+    // HOJA 3 — EMPLEADOS
+    // ══════════════════════════════════════════════════════════════
+    const HDR_EMP = ['N°','CÉDULA','NOMBRE COMPLETO','OFICIO','SALARIO BASE','ESTADO'];
+    const wsEmp = XLSX.utils.aoa_to_sheet([
+      ['QUICK LINE TRANSPORTES S.A.S — LISTADO DE TRABAJADORES'],
+      [`Total registrados: ${trabajadores.length}`],
+      [],
+      HDR_EMP,
+      ...trabajadores.map((t,i) => [
+        i+1, t.cedula||'', t.nombre||'',
+        t.cargo||t.oficio||'',
+        parseInt(t.salario)||1750904,
+        'ACTIVO'
+      ])
+    ]);
+    wsEmp['!cols'] = [{wch:5},{wch:16},{wch:36},{wch:22},{wch:14},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, wsEmp, 'EMPLEADOS');
+
+    // Descargar
+    const fechaHoy = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `QuickLine_Quincena${nQuincena}_${mesesNombre[mes]}_${anio}.xlsx`);
+    const cumplenFinal = filasRes.filter(r=>r[14]&&r[14].startsWith('✅')).length;
+    toast(`✅ Quincena ${nQuincena} — ${numEmp} trabajadores | ${cumplenFinal} cumplen 84h mín.`, 'ok');
+
+  } catch(e) {
+    console.error('Error exportando quincena:', e);
+    toast('Error al exportar: ' + e.message, 'err');
+  }
+}
+
+
+function generarPinNuevo() {
+  // Generar PIN de 4 dígitos único
+  let pin;
+  let intentos = 0;
+  do {
+    pin = String(Math.floor(1000 + Math.random() * 9000));
+    intentos++;
+  } while (trabajadores.some(t => t.pin === pin) && intentos < 100);
+  
+  const input = document.getElementById('nw-pin');
+  if (input) {
+    input.value = pin;
+    input.style.color = 'var(--green)';
+    toast(`PIN generado: ${pin} — anótalo`, 'ok');
+  }
+}
+
+// ─────────────────────────────────────────
+//  INIT — se ejecuta tras login, no aquí
+// ─────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  EXPORTAR AL FORMATO QUICK LINE (integrado con el Excel de nómina)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Constantes de nómina Quick Line
+const NOMINA = {
+  HORAS_MES: 230,
+  JORNADA: 7.0,
+  ALIM: 1.0,
+  // Franjas horarias
+  DIA_INI: 6,   // 6:00 am
+  DIA_FIN: 19,  // 7:00 pm
+  // Recargos
+  R_NOC: 1.35,   // nocturna +35%
+  R_ED:  1.25,   // diurna con recargo +25% (horas que superan 7h diurnas)
+};
+
+// Calcula todos los tipos de hora según legislación colombiana / Quick Line
+function calcularHoras(entradaMs, salidaMs, salario) {
+  const VH = salario / NOMINA.HORAS_MES;
+
+  const entH = new Date(entradaMs).getHours() + new Date(entradaMs).getMinutes()/60;
+  const salH_raw = new Date(salidaMs).getHours() + new Date(salidaMs).getMinutes()/60;
+  const salH = salidaMs < entradaMs ? salH_raw + 24 : salH_raw;
+
+  const brutas = salH - entH;
+
+  // Diurnas brutas (6am-7pm)
+  const hd_brut = Math.max(0, Math.min(salH, NOMINA.DIA_FIN) - Math.max(entH, NOMINA.DIA_INI));
+  const hn_brut = Math.max(0, brutas - hd_brut);
+
+  // Alimentación solo de diurnas
+  const hd_neta = Math.max(0, hd_brut - NOMINA.ALIM);
+  const hn_neta = hn_brut;
+  const netas   = hd_neta + hn_neta;
+
+  // Diurnas: ordinaria (base) hasta 7h, recargo +25% el excedente
+  const h_diur_ord = Math.min(hd_neta, NOMINA.JORNADA);
+  const h_diur_rec = Math.max(0, hd_neta - NOMINA.JORNADA);
+  // Nocturnas: siempre +35%
+  const h_noct = hn_neta;
+
+  const val_diur_ord = h_diur_ord * VH;
+  const val_diur_rec = h_diur_rec * VH * NOMINA.R_ED;
+  const val_noct     = h_noct     * VH * NOMINA.R_NOC;
+  const total        = val_diur_ord + val_diur_rec + val_noct;
+
+  return {
+    brutas:       +brutas.toFixed(2),
+    alim:         NOMINA.ALIM,
+    netas:        +netas.toFixed(2),
+    h_diur_ord:   +h_diur_ord.toFixed(2),
+    h_diur_rec:   +h_diur_rec.toFixed(2),
+    h_noct:       +h_noct.toFixed(2),
+    val_diur_ord: Math.round(val_diur_ord),
+    val_diur_rec: Math.round(val_diur_rec),
+    val_noct:     Math.round(val_noct),
+    total:        Math.round(total),
+    VH:           +VH.toFixed(2)
+  };
+}
+
+function fmt2(ms) {
+  return ms ? new Date(ms).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : '';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPORTAR — Formato exacto nómina Quick Line Transportes S.A.S
+// ═══════════════════════════════════════════════════════════════════
+
+// Estilo base Quick Line para celdas
+const QL = {
+  azul:    {fgColor:{rgb:'1A35CC'}},
+  azulOsc: {fgColor:{rgb:'0F1F8A'}},
+  blanco:  {fgColor:{rgb:'FFFFFF'}},
+  verde:   {fgColor:{rgb:'D6F5E3'}},
+  rojo:    {fgColor:{rgb:'FDECEA'}},
+  naranja: {fgColor:{rgb:'FFE0B2'}},
+  lila:    {fgColor:{rgb:'EEF0FB'}},
+  noche:   {fgColor:{rgb:'E8EAF6'}},
+  morado:  {fgColor:{rgb:'F3E5F5'}},
+  amarillo:{fgColor:{rgb:'FFF8DC'}},
+  plata:   {fgColor:{rgb:'C8D0DC'}},
+  alterno: {fgColor:{rgb:'E8ECFB'}},
+};
+
+function estiloQL(fill, bold=false, color='111111', sz=9, align='center') {
+  return {
+    font: {name:'Arial', sz, bold, color:{rgb:color}},
+    fill: {patternType:'solid', ...fill},
+    alignment: {horizontal:align, vertical:'center', wrapText:true},
+    border: {
+      top:{style:'thin',color:{rgb:'B0C4DE'}},
+      bottom:{style:'thin',color:{rgb:'B0C4DE'}},
+      left:{style:'thin',color:{rgb:'B0C4DE'}},
+      right:{style:'thin',color:{rgb:'B0C4DE'}}
+    }
+  };
+}
+
+function setCellStyle(ws, addr, style) {
+  if (!ws[addr]) ws[addr] = {v:'', t:'s'};
+  ws[addr].s = style;
+}
+
+function setCellVal(ws, addr, val, style, type) {
+  const t = type || (typeof val === 'number' ? 'n' : 's');
+  ws[addr] = {v: val, t, s: style};
+}
+
+// Determinar quincena del registro
+function getQuincena(fechaStr) {
+  const dia = parseInt(fechaStr.split('/')[0] || fechaStr.split('-')[2]);
+  return dia <= 15 ? 1 : 2;
+}
+
+function exportarExcelNomina() {
+  const hoyStr = hoy();
+  const regsCompletos = registros.filter(r => r.entrada && r.salida);
+
+  if (!regsCompletos.length) {
+    toast('No hay registros completos para exportar', 'err');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Preparar datos calculados ─────────────────────────────────────────
+  const datosCalc = regsCompletos.map((r, i) => {
+    const trab    = trabajadores.find(t => t.nombre === r.nombre);
+    const salario = trab ? (parseInt(trab.salario) || 1750904) : 1750904;
+    const oficio  = trab ? (trab.cargo || trab.oficio || '') : (r.cargo || '');
+    const cedula  = trab ? (trab.cedula || '') : '';
+    const calc    = calcularHoras(r.entrada, r.salida, salario);
+
+    const estado = calc.netas >= NOMINA.JORNADA ? 'COMPLETA' : 'INCOMPLETA';
+    return {
+      num: i+1, cedula, nombre: r.nombre, oficio, salario,
+      fecha: r.fecha || hoyStr,
+      entrada: fmt2(r.entrada), salida: fmt2(r.salida),
+    };
+  });
+
+  // ══════════════════════════════════════
+  // HOJA 1 — REGISTRO DIARIO
+  // ══════════════════════════════════════
+  const HDR1 = [
+    'N°','CEDULA','NOMBRE','OFICIO','SALARIO BASE',
+    'ENTRADA','SALIDA',
+    'H.BRUTAS','ALIMENT.(-1h)','H.NETAS',
+    'H.DIUR.ORD','H.DIUR.REC(+25%)','H.NOCT(+35%)',
+    'VAL.DIUR.ORD','VAL.DIUR.REC','VAL.NOCT',
+    'TOTAL DEVENGADO'
+  ];
+
+  const filas1 = datosCalc.map(d => [
+    d.num, d.cedula, d.nombre, d.oficio, d.salario,
+    d.entrada, d.salida,
+    d.brutas, d.alim, d.netas,
+    d.h_diur_ord, d.h_diur_rec, d.h_noct,
+    d.val_diur_ord, d.val_diur_rec, d.val_noct,
+    d.total
+  ]);
+
+  // Fila totales
+  const sumar = (campo) => datosCalc.reduce((s,d) => s + (d[campo]||0), 0);
+  const totFila = [
+    '','','TOTALES','','','','',
+    +sumar('brutas').toFixed(2), +sumar('alim').toFixed(2), +sumar('netas').toFixed(2),
+    +sumar('h_diur_ord').toFixed(2), +sumar('h_diur_rec').toFixed(2), +sumar('h_noct').toFixed(2),
+    Math.round(sumar('val_diur_ord')), Math.round(sumar('val_diur_rec')), Math.round(sumar('val_noct')),
+    Math.round(sumar('total'))
+  ];
+
+  // Info cabecera
+  const cab = [
+    ['QUICK LINE TRANSPORTES S.A.S — REGISTRO DIARIO DE ASISTENCIA'],
+    [`Fecha: ${hoyStr} | Trabajadores: ${datosCalc.length} | Diurna: 6am-7pm | Noct: 7pm-6am (+35%) | Extra D >7.6h (+25%) | Extra N >7.6h (+75%)`],
+    [],
+    HDR1,
+    ...filas1,
+    totFila
+  ];
+
+  const ws1 = XLSX.utils.aoa_to_sheet(cab);
+  ws1['!cols'] = [
+    {wch:4},{wch:13},{wch:28},{wch:18},{wch:13},
+    {wch:9},{wch:9},
+    {wch:9},{wch:12},{wch:9},
+    {wch:12},{wch:14},{wch:12},
+    {wch:13},{wch:13},{wch:13},
+    {wch:16},{wch:13}
+  ];
+  XLSX.utils.book_append_sheet(wb, ws1, 'REGISTRO DIARIO');
+
+  // ══════════════════════════════════════
+  // HOJA 2 — EMPLEADOS
+  // ══════════════════════════════════════
+  const HDR2 = ['N°','CEDULA','NOMBRE COMPLETO','OFICIO','SALARIO BASE','ESTADO'];
+  const filas2 = trabajadores.map((t,i) => [
+    i+1,
+    t.cedula || '',
+    t.nombre || '',
+    t.cargo || t.oficio || '',
+    parseInt(t.salario) || 1750904,
+    0,
+    'ACTIVO'
+  ]);
+  const ws2 = XLSX.utils.aoa_to_sheet([
+    ['QUICK LINE TRANSPORTES S.A.S — LISTADO DE EMPLEADOS'],
+    [`Total trabajadores: ${trabajadores.length}`],
+    [],
+    HDR2,
+    ...filas2
+  ]);
+  ws2['!cols'] = [{wch:5},{wch:16},{wch:36},{wch:22},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'EMPLEADOS');
+
+  // ══════════════════════════════════════
+  // HOJA 3 — RESUMEN DEL DÍA
+  // ══════════════════════════════════════
+  const fmt$ = n => '$' + Math.round(n).toLocaleString('es-CO');
+  const fmtH = n => parseFloat(n.toFixed(2)) + ' hrs';
+  const ws3 = XLSX.utils.aoa_to_sheet([
+    ['QUICK LINE TRANSPORTES S.A.S — RESUMEN DE ASISTENCIA'],
+    [`Fecha: ${hoyStr} | Trabajadores con registro: ${datosCalc.length}`],
+    [],
+    ['CONCEPTO', 'VALOR'],
+    ['H. diurnas ordinarias (base)',       fmtH(sumar('h_diur_ord'))],
+    ['H. diurnas con recargo (+25%)',      fmtH(sumar('h_diur_rec'))],
+    ['H. nocturnas (+35%)',                fmtH(sumar('h_noct'))],
+    ['H. netas totales trabajadas',        fmtH(sumar('netas'))],
+    [],
+    ['Valor diurno ordinario (base)', fmt$(sumar('val_diur_ord'))],
+    ['Valor diurno con recargo +25%', fmt$(sumar('val_diur_rec'))],
+    ['Valor nocturno +35%',           fmt$(sumar('val_noct'))],
+    ['TOTAL DEVENGADO DEL DIA',       fmt$(sumar('total'))],
+    [],
+    ['Jornada completa',   datosCalc.filter(d=>d.netas>=NOMINA.JORNADA).length + ' trabajadores'],
+    ['Jornada incompleta', datosCalc.filter(d=>d.netas<NOMINA.JORNADA).length + ' trabajadores'],
+  ]);
+  ws3['!cols'] = [{wch:38},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'RESUMEN DIA');
+
+  // ── Descargar sin estilos (evita error Excel) ─────────────────────────
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `QuickLine_Nomina_${fecha}.xlsx`);
+  toast('Excel descargado correctamente — 3 hojas', 'ok');
+}
+
+</script>
+</div><!-- /app-main -->
+</body>
+</html>
