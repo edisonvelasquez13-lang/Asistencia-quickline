@@ -1,0 +1,3164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<meta name="apple-mobile-web-app-title" content="Quick Line">
+<meta name="theme-color" content="#060D1F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Asistencia · Quick Line</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc, addDoc, getDocs,
+    query, where, onSnapshot, serverTimestamp, orderBy,
+    getDoc, updateDoc, deleteDoc, writeBatch
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, signInWithEmailAndPassword, signOut,
+    sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDfz7VCLFCvbE10HRATS-AT3vbBWIYo6zE",
+    authDomain: "quickline-asistencia.firebaseapp.com",
+    projectId: "quickline-asistencia",
+    storageBucket: "quickline-asistencia.firebasestorage.app",
+    messagingSenderId: "33716348720",
+    appId: "1:33716348720:web:ad61f487cdf53c68074af5"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db = getFirestore(fbApp);
+  const auth = getAuth(fbApp);
+  auth.languageCode = 'es';   // correos de Firebase en español
+
+  // Exponer en window para usar desde scripts normales (no-module)
+  window.FB = {
+    db, collection, doc, setDoc, addDoc, getDocs,
+    query, where, onSnapshot, serverTimestamp, orderBy,
+    getDoc, updateDoc, deleteDoc, writeBatch,
+    auth, signInAnonymously, signInWithEmailAndPassword, signOut,
+    sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider
+  };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+  :root {
+    --bg:     #060D1F;
+    --bg2:    #0D1A35;
+    --bg3:    #152040;
+    --border: rgba(255,255,255,0.08);
+    --blue:   #1A6FD4;
+    --amber:  #F5A800;
+    --green:  #0EC47A;
+    --red:    #F0595A;
+    --text:   #EEF3FF;
+    --muted:  #7A8EAD;
+    --r:      14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+
+  /* ── HEADER ── */
+  header{
+    background:var(--bg2);border-bottom:2px solid var(--amber);
+    padding:12px 20px;display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:100;
+  }
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo svg{width:32px;height:32px}
+  .logo-txt{font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .logo-txt span{color:var(--amber)}
+  .hdr-right{display:flex;gap:8px;align-items:center}
+
+  /* ── TABS ── */
+  .tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto}
+  .tab{padding:12px 20px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;
+       border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+  .tab.active{color:var(--amber);border-color:var(--amber)}
+
+  /* ── LAYOUT ── */
+  .page{display:none;padding:20px;max-width:600px;margin:0 auto}
+  .page.active{display:block}
+
+  /* ── CARDS ── */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px}
+  .card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;
+               letter-spacing:.5px;margin-bottom:14px}
+
+  /* ── BOTONES ── */
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+       padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;
+       border:none;transition:all .15s;font-family:inherit}
+  .btn-blue{background:var(--blue);color:#fff}
+  .btn-blue:hover{background:#1560BA}
+  .btn-amber{background:var(--amber);color:#060D1F}
+  .btn-amber:hover{filter:brightness(1.1)}
+  .btn-green{background:var(--green);color:#060D1F}
+  .btn-green:hover{filter:brightness(1.1)}
+  .btn-red{background:var(--red);color:#fff}
+  .btn-red:hover{filter:brightness(1.1)}
+  .btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}
+  .btn-outline:hover{background:var(--bg3)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-sm{padding:8px 14px;font-size:12px;width:auto;border-radius:8px}
+
+  /* ── INPUTS ── */
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--muted);font-weight:600;
+                text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+  input,select{width:100%;background:var(--bg3);border:1px solid var(--border);
+               border-radius:8px;padding:11px 14px;color:var(--text);font-size:16px;
+               font-family:inherit;outline:none;transition:border .15s}
+  input:focus,select:focus{border-color:var(--blue)}
+
+  /* ── CÁMARA ── */
+  .cam-wrap{position:relative;border-radius:12px;overflow:hidden;background:#000;
+             aspect-ratio:3/4;max-height:380px;margin-bottom:14px}
+  .cam-wrap video,.cam-wrap canvas{width:100%;height:100%;object-fit:cover;display:block}
+  .cam-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .cam-ring{width:180px;height:180px;border-radius:50%;border:3px solid rgba(245,168,0,.6);
+             box-shadow:0 0 0 4px rgba(245,168,0,.15)}
+  .cam-label{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+              background:rgba(0,0,0,.65);color:#fff;font-size:12px;font-weight:600;
+              padding:5px 14px;border-radius:99px;white-space:nowrap}
+
+  /* ── FOTO PREVIEW ── */
+  .foto-preview{border-radius:10px;overflow:hidden;margin-bottom:12px;display:none}
+  .foto-preview img{width:100%;display:block;max-height:260px;object-fit:cover}
+
+  /* ── STATUS BADGE ── */
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;
+          font-size:11px;font-weight:700}
+  .badge-green{background:rgba(14,196,122,.15);color:var(--green)}
+  .badge-red{background:rgba(240,89,90,.15);color:var(--red)}
+  .badge-amber{background:rgba(245,168,0,.15);color:var(--amber)}
+  .badge-blue{background:rgba(26,111,212,.15);color:var(--blue)}
+
+  /* ── LISTA TRABAJADORES ── */
+  .worker-item{display:flex;align-items:center;gap:12px;padding:12px;
+               background:var(--bg3);border-radius:10px;margin-bottom:8px}
+  .worker-avatar{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;
+                  border:2px solid var(--border)}
+  .worker-avatar-ph{width:44px;height:44px;border-radius:50%;background:var(--bg2);
+                     border:2px solid var(--border);display:flex;align-items:center;
+                     justify-content:center;font-size:18px;flex-shrink:0}
+  .worker-info{flex:1;min-width:0}
+  .worker-name{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .worker-cargo{font-size:12px;color:var(--muted)}
+  .worker-actions{display:flex;gap:6px;flex-shrink:0}
+
+  /* ── REGISTRO TABLE ── */
+  .reg-item{border-left:3px solid var(--border);padding:10px 14px;margin-bottom:8px;
+             background:var(--bg3);border-radius:0 10px 10px 0}
+  .reg-item.entrada{border-color:var(--green)}
+  .reg-item.completo{border-color:var(--blue)}
+  .reg-item.pendiente{border-color:var(--amber)}
+  .reg-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .reg-name{font-weight:700;font-size:14px}
+  .reg-times{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .reg-time-block{background:var(--bg2);border-radius:8px;padding:8px 10px}
+  .reg-time-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase}
+  .reg-time-val{font-size:16px;font-weight:700;margin-top:2px}
+
+  /* ── TOAST ── */
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+          background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+          padding:12px 20px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;
+          z-index:999;pointer-events:none;white-space:nowrap;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.ok{border-color:var(--green);color:var(--green)}
+  #toast.err{border-color:var(--red);color:var(--red)}
+  #toast.info{border-color:var(--blue);color:var(--blue)}
+
+  /* ── SPINNER ── */
+  .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);
+            border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── VERIFICANDO ── */
+  .verif-overlay{display:none;position:fixed;inset:0;background:rgba(6,13,31,.92);
+                  z-index:200;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  .verif-overlay.show{display:flex}
+  .verif-icon{width:72px;height:72px;border-radius:50%;border:3px solid var(--blue);
+               display:flex;align-items:center;justify-content:center;font-size:32px;
+               animation:pulse 1.5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(26,111,212,.4)}50%{box-shadow:0 0 0 16px rgba(26,111,212,0)}}
+  .verif-txt{font-size:16px;font-weight:700;color:var(--text)}
+  .verif-sub{font-size:13px;color:var(--muted)}
+
+  /* ── RESULTADO VERIFICACIÓN ── */
+  .result-box{border-radius:12px;padding:16px;margin-bottom:14px;display:none}
+  .result-box.ok{background:rgba(14,196,122,.1);border:1px solid rgba(14,196,122,.3)}
+  .result-box.fail{background:rgba(240,89,90,.1);border:1px solid rgba(240,89,90,.3)}
+  .result-box.warn{background:rgba(245,168,0,.1);border:1px solid rgba(245,168,0,.3)}
+  .result-title{font-weight:700;font-size:15px;margin-bottom:4px}
+  .result-sub{font-size:12px;color:var(--muted);line-height:1.5}
+
+  /* ── EXPORT BTN ── */
+  .export-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+
+  .empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
+  .empty-state .icon{font-size:48px;margin-bottom:12px}
+  .empty-state p{font-size:14px}
+
+  @media(max-width:480px){
+    .tabs .tab{padding:10px 14px;font-size:12px}
+    .page{padding:14px}
+  }
+
+  /* ── MOBILE OPTIMIZATIONS ── */
+  *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+
+  /* Botones táctiles más grandes en móvil */
+  .btn{min-height:48px;touch-action:manipulation}
+  .btn-sm{min-height:40px}
+  .tab{min-height:44px;display:flex;align-items:center;justify-content:center;
+       touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+  /* Inputs claros en móvil */
+  input,select{-webkit-appearance:none;appearance:none;
+               border-radius:8px;font-size:16px!important}
+  input[type="password"]{letter-spacing:4px}
+  input[inputmode="numeric"]{letter-spacing:8px;text-align:center;font-size:22px!important}
+
+  /* Cards con padding cómodo en pantallas pequeñas */
+  @media(max-width:380px){
+    .card{padding:14px}
+    .btn{font-size:14px;padding:12px}
+    .logo-txt{font-size:15px}
+    header{padding:10px 14px}
+    .page{padding:14px}
+  }
+
+  /* Pantallas medianas (tablets) */
+  @media(min-width:601px){
+    .page{max-width:520px}
+  }
+
+  /* Evitar que el teclado virtual tape el contenido */
+  @supports(height:100dvh){
+    html,body{height:100dvh}
+  }
+  @supports(-webkit-fill-available){
+    html{height:-webkit-fill-available}
+    body{min-height:-webkit-fill-available}
+  }
+
+  /* Fix scroll en iOS Safari */
+  .page{overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+  /* Toast visible en móvil */
+  #toast{
+    bottom:env(safe-area-inset-bottom, 24px);
+    bottom:calc(env(safe-area-inset-bottom, 0px) + 24px);
+    left:50%;transform:translateX(-50%);
+    width:calc(100% - 32px);max-width:360px;
+    font-size:14px;text-align:center;border-radius:12px;
+    padding:12px 16px;
+  }
+
+  /* Safe area para notch/Dynamic Island (iPhone 14+) */
+  header{padding-top:max(12px, env(safe-area-inset-top))}
+  body{padding-bottom:env(safe-area-inset-bottom,0)}
+
+
+  #toast{white-space:normal!important;line-height:1.4}
+  /* ── Ojito para ver la clave ── */
+  .ojo-wrap{position:relative}
+  .ojo-wrap input{padding-right:48px!important}
+  .ojo-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:none;background:transparent;
+           color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:8px;padding:0}
+  .ojo-btn:hover{color:var(--text);background:rgba(255,255,255,.06)}
+  .ojo-btn svg{width:20px;height:20px}
+  /* ══ ENTURNESE + TABLERO DE SOLICITUDES ══ */
+  .page.wide{max-width:1320px!important}
+  textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 14px;
+           color:var(--text);font-size:14px;font-family:inherit;outline:none;resize:vertical}
+  textarea:focus{border-color:var(--blue)}
+  .nota-warn{background:rgba(245,168,0,.08);border:1px solid rgba(245,168,0,.3);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;color:var(--text);margin-top:10px}
+  .chk-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px}
+  .chk{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+  .chk.ok{background:var(--green);color:#060D1F}.chk.warn{background:var(--amber);color:#060D1F}.chk.bad{background:var(--red);color:#fff}
+  .turno-box{text-align:center;padding:10px 0 16px;margin-bottom:12px;border-bottom:1px solid var(--border)}
+  .turno-num{font-size:44px;font-weight:800;color:var(--amber);line-height:1.1;margin:4px 0}
+  .sol-bar{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .sol-bar input,.sol-bar select{font-size:14px!important;padding:9px 12px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;border-left:4px solid var(--border)}
+  .kpi.amber{border-left-color:var(--amber)}.kpi.blue{border-left-color:var(--blue)}.kpi.red{border-left-color:var(--red)}
+  .kpi:first-child{border-left-color:var(--green)}
+  .kpi-l{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .kpi-v{font-size:26px;font-weight:800;margin:4px 0 2px}
+  .kpi-s{font-size:11px;color:var(--muted)}
+  .kcols{display:grid;grid-template-columns:repeat(6,minmax(200px,1fr));gap:10px;overflow-x:auto;padding-bottom:10px}
+  .kcol{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px;min-height:200px}
+  .kcol-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;padding:4px 4px 10px}
+  .kcol-n{margin-left:auto;color:var(--muted);font-weight:600}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .kcard{background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:8px;border-top:3px solid var(--border);cursor:pointer;transition:transform .1s}
+  .kcard:hover{transform:translateY(-1px);background:#1A2850}
+  .kcard-top{display:flex;justify-content:space-between;gap:8px;font-size:14px;margin-bottom:4px}
+  .kcard-top span{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48%;flex-shrink:0}
+  .kcard-l{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kvacio{color:var(--muted);text-align:center;font-size:12px;padding:16px 0}
+  .prev-row{font-size:13px;padding:8px 10px;background:var(--bg3);border-radius:8px;margin-top:6px}
+  .modal{display:none;position:fixed;inset:0;background:rgba(6,13,31,.75);z-index:300;justify-content:flex-end}
+  .modal.show{display:flex}
+  .modal-box{background:var(--bg2);width:min(480px,100%);height:100%;overflow-y:auto;padding:24px 22px 40px;border-left:2px solid var(--amber);position:relative}
+  .modal-x{position:absolute;top:14px;right:14px;background:var(--bg3);border:none;color:var(--text);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:14px}
+  .det-kv{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;margin-top:16px;font-size:13px}
+  .det-kv dt{color:var(--muted)}.det-kv dd{margin:0}
+  .det-kv + .card-title, .modal-box .card-title{margin-bottom:8px}
+  .cand{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg3);margin-bottom:6px;border:1px solid transparent}
+  .cand.top{border-color:var(--green);background:rgba(14,196,122,.07)}
+  .cand.off{opacity:.5}
+  .asig-box{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border-radius:10px;background:var(--bg3);border:1px solid var(--blue)}
+  .hist{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
+  .tur-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:start}
+  .tur-item{display:flex;gap:12px;align-items:center;padding:12px;background:var(--bg3);border-radius:10px;margin-bottom:8px}
+  .tur-item.asig{opacity:.65}
+  .tur-n{width:38px;height:38px;border-radius:50%;background:var(--bg);border:2px solid var(--amber);color:var(--amber);font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  .grid2 input,.grid2 select{font-size:14px!important;padding:9px 12px}
+  .chk-line{display:flex;gap:10px;align-items:center;font-size:13px;margin-top:4px}
+  .chk-line input{width:20px;height:20px;-webkit-appearance:auto;appearance:auto}
+  .pill{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:99px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+  .pill:hover{border-color:var(--amber)}
+  @media(max-width:900px){
+    .kpis{grid-template-columns:1fr 1fr}
+    .tur-grid{grid-template-columns:1fr}
+  }
+  @media(max-width:480px){ .grid2{grid-template-columns:1fr} .sol-bar input{width:100%!important} }
+</style>
+
+<script>
+// Registrar Service Worker para PWA
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('SW registrado:', reg.scope))
+      .catch(err => console.log('SW error:', err));
+  });
+}
+</script>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN / SELECCIÓN DE ROL ═══════════════ -->
+<div id="login-screen" style="min-height:100vh;display:flex;flex-direction:column;
+     align-items:center;justify-content:center;padding:24px;gap:24px">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+    <svg viewBox="0 0 32 32" fill="none" width="44" height="44"><rect width="32" height="32" rx="9" fill="#0D2B5E"/>
+      <path d="M6 22L11 10L17 18L22 12L26 22" stroke="#F5A800" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div style="font-size:22px;font-weight:700">Quick <span style="color:var(--amber)">Line</span></div>
+  </div>
+  <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:-16px">Asistencia · Turnos · Solicitudes</div>
+
+  <div class="card" style="width:100%;max-width:340px">
+    <div class="card-title">Soy...</div>
+    <button class="btn btn-amber" style="margin-bottom:10px" onclick="loginTrabajador()">
+      👷 Trabajador
+    </button>
+    <button class="btn btn-outline" style="margin-bottom:10px" onclick="loginConductor()">
+      🚚 Conductor tercero
+    </button>
+    <button class="btn btn-outline" onclick="mostrarLoginAdmin()">
+      🔑 Administrador u Operaciones
+    </button>
+
+    <div id="admin-login-box" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="field">
+        <label>Correo</label>
+        <input type="email" id="admin-email" autocomplete="username" placeholder="nombre@empresa.com" style="font-size:15px!important">
+      </div>
+      <div class="field">
+        <label>Clave</label>
+        <input type="password" id="admin-pass" autocomplete="current-password" placeholder="••••••" onkeydown="if(event.key==='Enter')loginAdmin()">
+      </div>
+      <button class="btn btn-blue" id="btn-ingresar" onclick="loginAdmin()">Ingresar</button>
+      <button type="button" onclick="olvideClave()" style="background:none;border:none;color:var(--blue);font-size:13px;margin-top:12px;cursor:pointer;width:100%;font-family:inherit">¿Olvidó su contraseña?</button>
+    </div>
+  </div>
+
+  <div id="conn-status" style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
+    <span id="conn-dot" style="width:8px;height:8px;border-radius:50%;background:var(--amber)"></span>
+    Conectando con la base de datos...
+  </div>
+</div>
+
+<!-- ═══════════════ APP PRINCIPAL (oculta hasta login) ═══════════════ -->
+<div id="app-main" style="display:none">
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="#0D2B5E"/>
+      <path d="M6 22L11 10L17 18L22 12L26 22" stroke="#F5A800" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="logo-txt">Quick <span>Line</span></div>
+  </div>
+  <div class="hdr-right">
+    <span id="rol-badge" class="badge badge-blue" style="font-size:10px"></span>
+    <span id="fecha-hdr" style="font-size:12px;color:var(--muted)"></span>
+    <button class="btn-sm btn-outline" id="btn-clave" style="padding:5px 10px;display:none" onclick="abrirCambioClave()">🔒 Clave</button>
+    <button class="btn-sm btn-outline" style="padding:5px 10px" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="registro" onclick="goTab('registro')">📸 Registro</div>
+  <div class="tab" data-tab="enturnarme" onclick="goTab('enturnarme')">🚚 Enturnarme</div>
+  <div class="tab" data-tab="solicitudes" onclick="goTab('solicitudes')">📥 Solicitudes</div>
+  <div class="tab" data-tab="turno" onclick="goTab('turno')">🚛 Turno de vehículos</div>
+  <div class="tab" id="tab-btn-trabajadores" data-tab="trabajadores" onclick="goTab('trabajadores')">👥 Trabajadores</div>
+  <div class="tab" id="tab-btn-historial" data-tab="historial" onclick="goTab('historial')">📋 Historial</div>
+</div>
+
+<!-- ═══════════════ TAB: REGISTRO ═══════════════ -->
+<div class="page active" id="tab-registro">
+
+  <!-- Seleccionar trabajador -->
+  <div class="card">
+    <div class="card-title">¿Quién eres?</div>
+    <div class="field">
+      <label>Selecciona tu nombre</label>
+      <select id="sel-trabajador" onchange="onSelectTrabajador()">
+        <option value="">— Elige un trabajador —</option>
+      </select>
+    </div>
+    <div id="worker-status" style="display:none">
+      <div id="worker-badge-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Verificación por PIN + foto de evidencia -->
+  <div class="card" id="cam-card" style="display:none">
+    <div class="card-title" id="cam-title">Verificar identidad</div>
+
+    <!-- Paso 1: PIN -->
+    <div id="pin-step">
+      <div class="field" style="margin-bottom:20px">
+        <label>Ingresa tu PIN de 4 dígitos</label>
+        <input id="input-pin" type="password" maxlength="4" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off"
+               placeholder="••••" style="letter-spacing:12px;font-size:28px;text-align:center"
+               onkeydown="if(event.key==='Enter')verificarPin()">
+      </div>
+      <button class="btn btn-amber" onclick="verificarPin()">🔐 Confirmar PIN</button>
+    </div>
+
+    <!-- Paso 2: Foto de evidencia (tras PIN correcto) -->
+    <div id="foto-step" style="display:none">
+      <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:14px">
+        ✅ PIN correcto — toma una foto de evidencia
+      </div>
+      <input type="file" id="input-foto" accept="image/*" capture="user"
+             style="display:none" onchange="onFotoSeleccionada(event)">
+      <div id="foto-drop" onclick="document.getElementById('input-foto').click()"
+           style="border:2px dashed rgba(245,168,0,.4);border-radius:12px;
+                  height:180px;display:flex;flex-direction:column;
+                  align-items:center;justify-content:center;gap:10px;cursor:pointer;
+                  background:rgba(245,168,0,.04);margin-bottom:14px">
+        <div style="font-size:40px">📸</div>
+        <div style="font-weight:700;font-size:14px">Tomar foto de evidencia</div>
+        <div style="font-size:11px;color:var(--muted)">Opcional pero recomendada</div>
+      </div>
+      <div class="foto-preview" id="foto-preview">
+        <img id="foto-img" src="" alt=""
+             style="border-radius:10px;width:100%;max-height:200px;object-fit:cover;display:block;margin-bottom:12px">
+      </div>
+      <div style="display:flex;gap:8px;flex-direction:column">
+        <button class="btn btn-green" onclick="registrarEvento()">✅ Registrar</button>
+        <button class="btn btn-outline" onclick="repetir()">📷 Cambiar foto</button>
+      </div>
+    </div>
+
+    <div id="result-box" class="result-box"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB: TRABAJADORES ═══════════════ -->
+<div class="page" id="tab-trabajadores">
+
+  <div class="card">
+    <div class="card-title">Registrar nuevo trabajador</div>
+    <div class="field"><label>Nombre completo</label><input id="nw-nombre" placeholder="Ej: Juan Pérez"></div>
+    <div class="field"><label>Cédula</label><input id="nw-cedula" type="number" placeholder="Ej: 1036677773" inputmode="numeric"></div>
+    <div class="field"><label>Cargo</label><input id="nw-cargo" placeholder="Ej: Conductor"></div>
+    <div class="field"><label>Salario básico mensual</label><input id="nw-salario" type="number" placeholder="Ej: 1423500"></div>
+    <div class="field">
+      <label>PIN de acceso (4 dígitos)</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input id="nw-pin" type="text" maxlength="4" inputmode="numeric" 
+               autocomplete="off" readonly
+               placeholder="Auto-generado"
+               style="letter-spacing:8px;font-size:22px;text-align:center;flex:1;background:var(--bg2)">
+        <button type="button" onclick="generarPinNuevo()" 
+                class="btn btn-outline btn-sm" style="white-space:nowrap">
+          🔄 Generar PIN
+        </button>
+      </div>
+      <small style="color:var(--muted);font-size:11px">El PIN se genera automáticamente. Compártelo con el trabajador.</small>
+    </div>
+
+    <div class="card-title" style="margin-top:4px">Foto de referencia</div>
+    <input type="file" id="input-foto-nw" accept="image/*" capture="user"
+           style="display:none" onchange="onFotoNWSeleccionada(event)">
+    <div id="foto-drop-nw" onclick="document.getElementById('input-foto-nw').click()"
+         style="border:2px dashed rgba(245,168,0,.4);border-radius:12px;
+                height:160px;display:flex;flex-direction:column;
+                align-items:center;justify-content:center;gap:8px;cursor:pointer;
+                background:rgba(245,168,0,.04);margin-bottom:12px">
+      <div style="font-size:36px">📷</div>
+      <div style="font-size:13px;font-weight:600">Tomar foto de referencia</div>
+    </div>
+    <div class="foto-preview" id="foto-preview-nw" style="margin-bottom:12px">
+      <img id="foto-img-nw" src="" alt=""
+           style="border-radius:10px;width:100%;max-height:200px;object-fit:cover;display:block">
+    </div>
+    <button class="btn btn-green" onclick="guardarTrabajador()">✅ Guardar trabajador</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span>Trabajadores registrados</span>
+      <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="limpiarDuplicados()">🧹 Limpiar duplicados</button>
+    </div>
+    <div id="lista-trabajadores">
+      <div class="empty-state"><div class="icon">👤</div><p>No hay trabajadores registrados aún.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB: HISTORIAL ═══════════════ -->
+<div class="page" id="tab-historial">
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Periodo a exportar (Quincena)</div>
+    <div style="display:flex;gap:10px">
+      <div class="field" style="flex:1;margin-bottom:0">
+        <label>Mes</label>
+        <select id="sel-mes-export"></select>
+      </div>
+      <div class="field" style="flex:0 0 100px;margin-bottom:0">
+        <label>Año</label>
+        <select id="sel-anio-export"></select>
+      </div>
+    </div>
+    <div class="field" style="margin-top:10px;margin-bottom:0">
+      <label>Quincena</label>
+      <select id="sel-quincena-export">
+        <option value="1">Quincena 1 (día 1 al 15)</option>
+        <option value="2">Quincena 2 (día 16 al fin de mes)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="export-bar">
+    <button class="btn btn-green btn-sm" style="flex:1" onclick="exportarExcelNomina()">⬇ Exportar día</button>
+    <button class="btn btn-outline btn-sm" style="flex:1" onclick="exportarQuincenaCompleta()">📊 Exportar Quincena</button>
+    <button class="btn btn-outline btn-sm" style="flex:1" onclick="verRegistrosPeriodo()">👁 Ver registros</button>
+    <button class="btn btn-outline btn-sm" style="flex:1" onclick="limpiarHistorial()">🗑 Limpiar hoy</button>
+  </div>
+  <div id="lista-periodo"></div>
+  <div id="lista-historial">
+    <div class="empty-state"><div class="icon">📋</div><p>Sin registros hoy.</p></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════ TAB: ENTURNARME (conductor tercero) ═══════════════ -->
+<div class="page" id="tab-enturnarme">
+  <div class="card">
+    <div class="card-title">Enturnese · Identifíquese</div>
+    <div class="field"><label>Placa del vehículo</label><input id="ent-placa" placeholder="Ej: KDT 552" autocapitalize="characters" style="text-transform:uppercase"></div>
+    <div class="field"><label>Cédula del conductor</label><input id="ent-cedula" type="tel" placeholder="Solo números"></div>
+    <button class="btn btn-amber" onclick="entIdentificar()">Continuar</button>
+  </div>
+
+  <div class="card" id="ent-registro" style="display:none">
+    <div class="card-title">Primera vez · sus datos</div>
+    <div class="field"><label>Nombre completo</label><input id="ent-nombre" placeholder="Como aparece en la cédula"></div>
+    <div class="field"><label>Celular</label><input id="ent-celular" type="tel" placeholder="Ej: 3001234567"></div>
+    <div class="field"><label>Tipo de vehículo</label><select id="ent-tipo"></select></div>
+    <div class="nota-warn" style="margin-bottom:12px">Seguridad revisa su hoja de vida (SOAT, tecnomecánica, ARL y demás documentos) antes de asignarle viajes.</div>
+    <button class="btn btn-green" onclick="entRegistrar()">Registrarme</button>
+  </div>
+
+  <div id="ent-panel" style="display:none">
+    <div class="card">
+      <div id="ent-quien" style="margin-bottom:14px"></div>
+      <div class="card-title">Su hoja de vida</div>
+      <div id="ent-docs"></div>
+    </div>
+    <div class="card">
+      <div id="ent-turno" class="turno-box" style="display:none"></div>
+      <div id="ent-sede-wrap" class="field"><label>¿Dónde está disponible para cargar?</label>
+        <select id="ent-sede" onchange="renderConductor()"></select></div>
+      <button class="btn btn-amber" id="ent-btn" onclick="entEnturnar()">Enturnarme</button>
+      <button class="btn btn-outline" id="ent-salir" style="display:none;margin-top:10px" onclick="entSalir()">Salir del turno</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">Al enturnarse se registra la ubicación de su celular. El turno vale por el día.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB: SOLICITUDES (tablero) ═══════════════ -->
+<div class="page wide" id="tab-solicitudes">
+  <div class="sol-bar">
+    <div><div style="font-size:22px;font-weight:800">Solicitudes</div>
+      <div style="font-size:12px;color:var(--muted)" id="sol-fecha"></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="sol-buscar" placeholder="Buscar cliente, placa o servicio" oninput="renderTablero()" style="width:250px">
+      <button class="btn btn-outline btn-sm" onclick="exportarSolicitudes()">⬇ Excel del mes</button>
+      <button class="btn btn-blue btn-sm" onclick="const p=document.getElementById('sol-pegar');p.style.display=p.style.display==='none'?'block':'none';document.getElementById('sol-texto').focus()">+ Pegar mensaje de WhatsApp</button>
+    </div>
+  </div>
+  <div class="card" id="sol-pegar" style="display:none">
+    <div class="card-title">Pegue aquí el mensaje que llegó del formulario</div>
+    <textarea id="sol-texto" rows="8" placeholder="*SOLICITUD DE SERVICIO — QUICK LINE* ..."></textarea>
+    <button class="btn btn-amber" style="margin-top:10px" onclick="solLeer()">Leer mensaje</button>
+    <div id="sol-preview"></div>
+  </div>
+  <div class="kpis" id="sol-kpis"></div>
+  <div class="kcols" id="sol-cols"></div>
+</div>
+
+<!-- ═══════════════ TAB: TURNO DE VEHÍCULOS ═══════════════ -->
+<div class="page wide" id="tab-turno">
+  <div class="sol-bar">
+    <div><div style="font-size:22px;font-weight:800">Turno de vehículos</div>
+      <div style="font-size:12px;color:var(--muted)">Enturnese · los conductores se enturnan desde su celular</div></div>
+    <select id="tur-sede" onchange="renderTurno()" style="width:220px"></select>
+  </div>
+  <div class="kpis" id="tur-kpis"></div>
+  <div class="tur-grid">
+    <div class="card"><div id="tur-lista"></div></div>
+    <div>
+      <div class="card">
+        <div class="card-title">Hoja de vida de terceros</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input id="hv-buscar" placeholder="Placa" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')abrirHV()">
+          <button class="btn btn-blue btn-sm" onclick="abrirHV()">Buscar</button>
+        </div>
+        <div id="hv-editor"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Cargar base de Systram</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px">
+          Suba el informe de movimientos (IGMT) exportado de Systram, el mismo del Dashboard General.
+          Se crean o actualizan los conductores terceros con su placa, cédula, celular, tipo de vehículo,
+          propietario e historial de cargues. No cambia aprobaciones ni fechas que seguridad ya registró.
+        </div>
+        <input type="file" id="imp-archivo" accept=".xls,.xlsx,.html,.htm" style="font-size:13px!important;padding:8px">
+        <button class="btn btn-blue" style="margin-top:10px" id="imp-btn" onclick="importarSystram()">⬆ Cargar base</button>
+        <div id="imp-estado" style="font-size:12px;margin-top:10px;line-height:1.5"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Pendientes de aprobar</div>
+        <div id="hv-pendientes" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detalle de una solicitud -->
+<div class="modal" id="sol-modal" onclick="if(event.target===this)cerrarDetalle()">
+  <div class="modal-box">
+    <button class="modal-x" onclick="cerrarDetalle()" aria-label="Cerrar">✕</button>
+    <div id="sol-det"></div>
+  </div>
+</div>
+
+<!-- Cambiar la clave (administrador y operaciones) -->
+<div class="modal" id="clave-modal" style="justify-content:center;align-items:center" onclick="if(event.target===this)cerrarCambioClave()">
+  <div class="card" style="width:min(380px,92%);margin:0">
+    <div class="card-title">Cambiar mi clave</div>
+    <div id="clave-aviso" class="nota-warn" style="display:none;margin:0 0 12px"></div>
+    <div class="field"><label>Clave actual</label><input type="password" id="clave-actual" autocomplete="current-password"></div>
+    <div class="field"><label>Clave nueva</label><input type="password" id="clave-nueva" autocomplete="new-password"></div>
+    <div class="field"><label>Repita la clave nueva</label><input type="password" id="clave-nueva2" autocomplete="new-password"></div>
+    <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px">Mínimo 8 caracteres, con letras y números.</div>
+    <button class="btn btn-green" onclick="cambiarClave()">Guardar clave nueva</button>
+    <button class="btn btn-outline" style="margin-top:8px" onclick="cerrarCambioClave()">Ahora no</button>
+  </div>
+</div>
+
+<!-- ═══════════════ OVERLAYS ═══════════════ -->
+<div class="verif-overlay" id="verif-overlay">
+  <div class="verif-icon">🔍</div>
+  <div class="verif-txt">Verificando identidad...</div>
+  <div class="verif-sub">Claude está analizando la foto</div>
+</div>
+
+
+<!-- Banner instalar como app -->
+<div id="install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;
+  background:var(--bg2);border-top:2px solid var(--amber);padding:14px 20px;
+  z-index:999;display:none;align-items:center;justify-content:space-between;gap:12px">
+  <div style="font-size:13px;font-weight:600">
+    📲 Instala Quick Line como app
+  </div>
+  <div style="display:flex;gap:8px">
+    <button onclick="instalarPWA()" style="background:var(--amber);color:#000;border:none;
+      padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+      Instalar
+    </button>
+    <button onclick="document.getElementById('install-banner').style.display='none'"
+      style="background:transparent;color:var(--muted);border:1px solid var(--border);
+      padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer">
+      Ahora no
+    </button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────
+//  ESTADO
+// ─────────────────────────────────────────
+let trabajadores = [];   // se carga desde Firestore
+let registros    = [];   // se carga desde Firestore (solo del día, en tiempo real)
+let fotoBase64 = null, fotoNWBase64 = null;
+let trabajadorSeleccionado = null;
+let estadoTurno = null; // 'entrada' | 'salida' | 'completo'
+let rolActual = null;   // 'admin' | 'trabajador'
+let ubicacionActual = null; // {lat, lng, precision}
+let fbReady = false;
+
+// Administrador y operaciones entran con su correo y clave de Firebase Authentication.
+// Qué correo es administrador y cuál es operaciones se define en Firestore, documento config/roles:
+//   admins: ["correo1@...", ...]   operaciones: ["correo2@...", ...]
+// Trabajadores y conductores entran como anónimos (sin clave).
+const DIAS_CAMBIO_CLAVE = 90;   // cada cuántos días se pide cambiar la clave
+
+async function sha256(txt){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+const pinHashDe = (id, pin) => sha256('ql-pin|'+id+'|'+pin);
+
+async function entrarAnonimo(){
+  const a = window.FB.auth;
+  if(a.currentUser && !a.currentUser.isAnonymous) await window.FB.signOut(a);
+  if(!a.currentUser) await window.FB.signInAnonymously(a);
+}
+
+const MESES_NOMBRE = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
+                       'JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
+// ─────────────────────────────────────────
+//  SELECTORES DE PERIODO (mes/año/quincena) PARA EXPORTAR
+// ─────────────────────────────────────────
+function poblarSelectoresExport(){
+  const selMes = document.getElementById('sel-mes-export');
+  const selAnio = document.getElementById('sel-anio-export');
+  const selQuin = document.getElementById('sel-quincena-export');
+  if(!selMes || !selAnio || !selQuin) return;
+
+  // Solo poblar/fijar valores por defecto UNA vez. Si ya se pobló antes,
+  // no tocar la selección: así respetamos lo que el usuario haya elegido.
+  if(selMes.options.length) return;
+
+  const hoyDate = new Date();
+  const anioActual = hoyDate.getFullYear();
+  const mesActual = hoyDate.getMonth(); // 0-11
+  const quincenaActual = hoyDate.getDate() <= 15 ? 1 : 2;
+
+  selMes.innerHTML = MESES_NOMBRE.map((m,i)=>`<option value="${i}">${m}</option>`).join('');
+  const anios = [anioActual-1, anioActual, anioActual+1];
+  selAnio.innerHTML = anios.map(a=>`<option value="${a}">${a}</option>`).join('');
+
+  // Fijar por defecto el mes/año/quincena actuales (el usuario puede cambiarlos luego)
+  selMes.value = String(mesActual);
+  selAnio.value = String(anioActual);
+  selQuin.value = String(quincenaActual);
+}
+
+// ─────────────────────────────────────────
+//  FIREBASE — espera a que cargue el módulo
+// ─────────────────────────────────────────
+window.addEventListener('firebase-ready', async () => {
+  fbReady = true;
+  const dot = document.getElementById('conn-dot');
+  const cs  = document.getElementById('conn-status');
+  if(dot) dot.style.background = 'var(--green)';
+  if(cs && cs.lastChild) cs.lastChild.textContent = ' Conectado';
+  try {
+    // Los datos se cargan después de iniciar sesión (las reglas de Firebase lo exigen)
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    if(dot) dot.style.background = 'var(--red)';
+    if(cs && cs.lastChild) cs.lastChild.textContent = ' Error: ' + e.message;
+  }
+});
+
+// Si tarda mucho en cargar el módulo, avisar
+setTimeout(()=>{
+  if(!fbReady){
+    const dot=document.getElementById('conn-dot');
+    const cs=document.getElementById('conn-status');
+    if(dot) dot.style.background='var(--red)';
+    if(cs && cs.lastChild) cs.lastChild.textContent=' Sin conexión — verifica tu internet';
+    // Mostrar botón de reintento
+    const loginScreen = document.getElementById('login-screen');
+    if(loginScreen){
+      const retryDiv = document.createElement('div');
+      retryDiv.style.cssText='text-align:center;margin-top:16px;';
+      retryDiv.innerHTML='<button onclick="location.reload()" style="background:var(--amber);color:#000;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🔄 Reintentar conexión</button>';
+      const card = loginScreen.querySelector('.card');
+      if(card) card.appendChild(retryDiv);
+    }
+  }
+}, 8000);
+
+async function cargarTrabajadores(){
+  try{
+    // El administrador lee la ficha completa; el trabajador solo la lista pública (nombre, cargo y PIN cifrado)
+    const col = rolActual==='admin' ? 'trabajadores' : 'trabajadores_publico';
+    const snap = await window.FB.getDocs(window.FB.collection(window.FB.db, col));
+    trabajadores = snap.docs.map(d=>({id:d.id, ...d.data()}))
+      .sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre),'es'));
+    poblarSelect();
+    if(rolActual==='admin'){ renderTrabajadores(); await sincronizarPublico(); }
+  }catch(e){
+    console.error('Error cargando trabajadores:', e);
+    toast('Error cargando trabajadores: '+e.message,'err');
+  }
+}
+
+// Mantiene trabajadores_publico al día con la ficha completa (solo administrador)
+async function sincronizarPublico(){
+  try{
+    const snap = await window.FB.getDocs(window.FB.collection(window.FB.db,'trabajadores_publico'));
+    const pub = Object.fromEntries(snap.docs.map(d=>[d.id, d.data()]));
+    for(const t of trabajadores){
+      const h = await pinHashDe(t.id, String(t.pin));
+      const p = pub[t.id];
+      if(!p || p.nombre!==t.nombre || p.cargo!==t.cargo || p.pinHash!==h)
+        await window.FB.setDoc(window.FB.doc(window.FB.db,'trabajadores_publico',t.id), {nombre:t.nombre, cargo:t.cargo||'', pinHash:h});
+    }
+    for(const id of Object.keys(pub)) if(!trabajadores.find(t=>t.id===id))
+      await window.FB.deleteDoc(window.FB.doc(window.FB.db,'trabajadores_publico',id));
+  }catch(e){ console.error('Sincronizando lista pública:', e); }
+}
+
+let registrosEscuchando = false;
+function escucharRegistrosHoy(){
+  if(registrosEscuchando) return;
+  registrosEscuchando = true;
+  const hoyStr = hoy();
+  const q = window.FB.query(
+    window.FB.collection(window.FB.db, 'registros'),
+    window.FB.where('fecha', '==', hoyStr)
+  );
+  window.FB.onSnapshot(q, snap=>{
+    registros = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(rolActual) renderHistorial();
+    if(trabajadorSeleccionado) onSelectTrabajador();
+  }, err=>{
+    console.error('Error escuchando registros:', err);
+  });
+}
+
+// ─────────────────────────────────────────
+//  LOGIN / ROLES
+// ─────────────────────────────────────────
+function mostrarLoginAdmin(){
+  document.getElementById('admin-login-box').style.display='block';
+  const em = document.getElementById('admin-email');
+  try{ if(!em.value) em.value = localStorage.getItem('ql-email')||''; }catch(e){}
+  (em.value ? document.getElementById('admin-pass') : em).focus();
+}
+
+function errorLogin(e){
+  console.error('Login:', e);
+  const c = e && e.code || '';
+  if(c.includes('wrong-password') || c.includes('invalid-credential') || c.includes('invalid-login')) return 'Correo o clave incorrectos';
+  if(c.includes('user-not-found')) return 'Correo o clave incorrectos';
+  if(c.includes('invalid-email')) return 'El correo no es válido';
+  if(c.includes('user-disabled')) return 'Esta cuenta está desactivada';
+  if(c.includes('operation-not-allowed') || c.includes('admin-restricted')) return 'Falta activar el inicio de sesión en Firebase';
+  if(c.includes('network')) return 'Sin conexión';
+  if(c.includes('too-many-requests')) return 'Demasiados intentos. Espere unos minutos';
+  return 'No se pudo ingresar: '+(e.message||c);
+}
+
+async function loginAdmin(){
+  const email = document.getElementById('admin-email').value.trim().toLowerCase();
+  const pass = document.getElementById('admin-pass').value;
+  if(!email || !pass){ toast('Escriba su correo y su clave','err'); return; }
+  if(!fbReady){ toast('Sin conexión con la base de datos','err'); return; }
+  const btn = document.getElementById('btn-ingresar'); btn.disabled = true;
+  try{
+    const a = window.FB.auth;
+    if(a.currentUser) await window.FB.signOut(a);
+    await window.FB.signInWithEmailAndPassword(a, email, pass);
+    // ¿Qué permisos tiene este correo?
+    const r = await window.FB.getDoc(window.FB.doc(window.FB.db,'config','roles'));
+    const roles = r.exists() ? r.data() : {};
+    const enLista = l => (l||[]).map(x=>String(x).trim().toLowerCase()).includes(email);
+    const rol = enLista(roles.admins) ? 'admin' : enLista(roles.operaciones) ? 'operaciones' : null;
+    if(!rol){
+      await window.FB.signOut(a);
+      toast('Este correo no tiene permisos asignados en la aplicación','err');
+      btn.disabled = false; return;
+    }
+    try{ localStorage.setItem('ql-email', email); }catch(e){}
+    rolActual = rol;
+  }catch(e){ toast(errorLogin(e),'err'); btn.disabled = false; return; }
+  btn.disabled = false;
+  entrarApp();
+  revisarVencimientoClave();
+}
+
+async function olvideClave(){
+  const email = document.getElementById('admin-email').value.trim().toLowerCase();
+  if(!email){ toast('Escriba primero su correo','err'); document.getElementById('admin-email').focus(); return; }
+  if(!fbReady){ toast('Sin conexión con la base de datos','err'); return; }
+  try{
+    await window.FB.sendPasswordResetEmail(window.FB.auth, email);
+    toast('Si el correo está registrado, le llegará un enlace para crear una clave nueva. Revise también el correo no deseado.','ok');
+  }catch(e){
+    if(String(e.code||'').includes('invalid-email')) toast('El correo no es válido','err');
+    else toast('Si el correo está registrado, le llegará un enlace para crear una clave nueva.','ok');
+  }
+}
+
+// ── Cambio periódico de clave ───────────────────────────────────────
+async function revisarVencimientoClave(){
+  const u = window.FB.auth.currentUser; if(!u) return;
+  try{
+    const ref = window.FB.doc(window.FB.db,'cuentas',u.uid);
+    const d = await window.FB.getDoc(ref);
+    if(!d.exists() || !d.data().claveCambiada){
+      await window.FB.setDoc(ref, {email:u.email||'', claveCambiada:Date.now()}, {merge:true});
+      return;
+    }
+    const dias = Math.floor((Date.now()-d.data().claveCambiada)/864e5);
+    if(dias >= DIAS_CAMBIO_CLAVE)
+      abrirCambioClave(`Su clave tiene ${dias} días. Por seguridad, cámbiela ahora.`);
+  }catch(e){ console.error('Vencimiento de clave:', e); }
+}
+
+function abrirCambioClave(aviso){
+  ['clave-actual','clave-nueva','clave-nueva2'].forEach(id=>document.getElementById(id).value='');
+  if(window.ocultarClaves) ocultarClaves();
+  const av = document.getElementById('clave-aviso');
+  av.style.display = typeof aviso==='string' ? 'block' : 'none';
+  av.textContent = typeof aviso==='string' ? aviso : '';
+  document.getElementById('clave-modal').classList.add('show');
+  document.getElementById('clave-actual').focus();
+}
+function cerrarCambioClave(){ document.getElementById('clave-modal').classList.remove('show'); }
+
+async function cambiarClave(){
+  const actual = document.getElementById('clave-actual').value;
+  const nueva  = document.getElementById('clave-nueva').value;
+  const nueva2 = document.getElementById('clave-nueva2').value;
+  if(!actual){ toast('Escriba su clave actual','err'); return; }
+  if(nueva.length < 8 || !/[a-zA-Z]/.test(nueva) || !/\d/.test(nueva)){ toast('La clave nueva debe tener mínimo 8 caracteres, con letras y números','err'); return; }
+  if(nueva !== nueva2){ toast('Las claves nuevas no coinciden','err'); return; }
+  if(nueva === actual){ toast('La clave nueva debe ser distinta a la actual','err'); return; }
+  const u = window.FB.auth.currentUser;
+  try{
+    const cred = window.FB.EmailAuthProvider.credential(u.email, actual);
+    await window.FB.reauthenticateWithCredential(u, cred);
+    await window.FB.updatePassword(u, nueva);
+    await window.FB.setDoc(window.FB.doc(window.FB.db,'cuentas',u.uid), {email:u.email||'', claveCambiada:Date.now()}, {merge:true});
+    cerrarCambioClave();
+    toast('✅ Clave cambiada','ok');
+  }catch(e){
+    const c = String(e.code||'');
+    toast(c.includes('wrong-password')||c.includes('invalid-credential') ? 'La clave actual no es correcta'
+        : c.includes('weak-password') ? 'La clave nueva es muy débil' : 'No se pudo cambiar: '+(e.message||c), 'err');
+  }
+}
+
+async function loginConductor(){
+  if(!fbReady){ toast('Sin conexión con la base de datos','err'); return; }
+  try{ await entrarAnonimo(); }catch(e){ toast(errorLogin(e),'err'); return; }
+  rolActual='conductor';
+  entrarApp();
+}
+
+// Pestañas que ve cada rol (la primera es la de inicio)
+const ACCESOS = {
+  trabajador:  ['registro'],
+  conductor:   ['enturnarme'],
+  operaciones: ['solicitudes','turno'],
+  admin:       ['registro','solicitudes','turno','trabajadores','historial']
+};
+
+async function loginTrabajador(){
+  if(!fbReady){ toast('Sin conexión con la base de datos','err'); return; }
+  try{ await entrarAnonimo(); }catch(e){ toast(errorLogin(e),'err'); return; }
+  rolActual='trabajador';
+  entrarApp();
+}
+
+function entrarApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-main').style.display='block';
+
+  const badge=document.getElementById('rol-badge');
+  badge.textContent = {admin:'🔑 Administrador', operaciones:'📥 Operaciones', conductor:'🚚 Conductor', trabajador:'👷 Trabajador'}[rolActual];
+
+  document.getElementById('btn-clave').style.display = (rolActual==='admin'||rolActual==='operaciones') ? '' : 'none';
+
+  // Cada rol solo ve sus pestañas
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.style.display = ACCESOS[rolActual].includes(t.dataset.tab) ? '' : 'none';
+  });
+
+  goTab(ACCESOS[rolActual][0]);
+  if(rolActual==='trabajador' || rolActual==='admin'){
+    pedirUbicacion();
+    cargarTrabajadores();
+    escucharRegistrosHoy();
+  }
+  if(rolActual==='conductor') iniciarConductor();
+  if(rolActual==='admin' || rolActual==='operaciones'){
+    iniciarOperacion();
+    document.getElementById('sol-fecha').textContent = new Date().toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  }
+}
+
+function cerrarSesion(){
+  rolActual=null;
+  trabajadorSeleccionado=null;
+  miTercero=null;
+  cerrarDetalle();
+  const ep=document.getElementById('ent-panel'); if(ep) ep.style.display='none';
+  document.getElementById('app-main').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('admin-pass').value='';
+  document.getElementById('admin-login-box').style.display='none';
+  // Recargar la página deja limpias las suscripciones y los datos en memoria
+  window.FB.signOut(window.FB.auth).catch(()=>{}).finally(()=>location.reload());
+}
+
+// ─────────────────────────────────────────
+//  GEOLOCALIZACIÓN
+// ─────────────────────────────────────────
+function pedirUbicacion(){
+  if(!navigator.geolocation){
+    toast('Tu navegador no soporta ubicación','err'); return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      ubicacionActual = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        precision: Math.round(pos.coords.accuracy)
+      };
+    },
+    err=>{
+      console.warn('Geolocalización no disponible:', err.message);
+      ubicacionActual = null;
+    },
+    {enableHighAccuracy:true, timeout:8000}
+  );
+}
+
+// ─────────────────────────────────────────
+//  UTILS
+// ─────────────────────────────────────────
+function toast(msg, tipo='info'){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='show '+tipo;
+  clearTimeout(el._t); el._t=setTimeout(()=>el.className='',2800);
+}
+
+function fmt(ts){ return ts ? new Date(ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : '—'; }
+function fmtDur(ms){
+  if(!ms) return '—';
+  const h=Math.floor(ms/3600000), m=Math.floor((ms%3600000)/60000);
+  return `${h}h ${m}m`;
+}
+
+function hoy(){
+  return new Date().toLocaleDateString('es-CO',{year:'numeric',month:'2-digit',day:'2-digit'});
+}
+
+// ─────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────
+function goTab(id){
+  // Bloquear acceso a pestañas restringidas si no es admin
+  if(!rolActual || !ACCESOS[rolActual].includes(id)){
+    toast('⛔ Acceso restringido', 'err');
+    return;
+  }
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab===id);
+  });
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if(id==='trabajadores') renderTrabajadores();
+  if(id==='historial'){ renderHistorial(); poblarSelectoresExport(); }
+  if(id==='solicitudes') renderTablero();
+  if(id==='turno'){ renderTurno(); cargarPendientesHV(); }
+  if(id==='enturnarme') renderConductor();
+  if(id!=='registro') pararCamaras();
+}
+
+// ─────────────────────────────────────────
+//  FECHA HEADER
+// ─────────────────────────────────────────
+function updateFecha(){
+  document.getElementById('fecha-hdr').textContent =
+    new Date().toLocaleDateString('es-CO',{weekday:'short',day:'2-digit',month:'short'});
+}
+updateFecha();
+
+// ─────────────────────────────────────────
+//  SELECT TRABAJADOR
+// ─────────────────────────────────────────
+function poblarSelect(){
+  const sel=document.getElementById('sel-trabajador');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Elige un trabajador —</option>' +
+    trabajadores.map((w,i)=>`<option value="${i}">${w.nombre} · ${w.cargo}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+
+function onSelectTrabajador(){
+  const idx=document.getElementById('sel-trabajador').value;
+  const ws=document.getElementById('worker-status');
+  const cc=document.getElementById('cam-card');
+  pararCamaras();
+  fotoBase64=null;
+
+  if(idx===''){
+    ws.style.display='none'; cc.style.display='none';
+    trabajadorSeleccionado=null; return;
+  }
+
+  trabajadorSeleccionado=trabajadores[parseInt(idx)];
+  ws.style.display='block';
+
+  // ¿tiene registro hoy?
+  const reg=getRegHoy(trabajadorSeleccionado.nombre);
+  if(reg && reg.salida){
+    estadoTurno='completo';
+    document.getElementById('worker-badge-wrap').innerHTML=
+      `<span class="badge badge-blue">✅ Turno completo hoy</span>
+       <div style="font-size:12px;color:var(--muted);margin-top:6px">
+         Entrada: ${fmt(reg.entrada)} · Salida: ${fmt(reg.salida)} · ${fmtDur(reg.salida-reg.entrada)}
+       </div>`;
+    cc.style.display='none';
+  } else {
+    estadoTurno = reg ? 'salida' : 'entrada';
+    const label = estadoTurno==='entrada' ? 'Registrar entrada' : 'Registrar salida';
+    document.getElementById('worker-badge-wrap').innerHTML=
+      `<span class="badge ${estadoTurno==='entrada'?'badge-green':'badge-amber'}">
+        ${estadoTurno==='entrada'?'🟢 Sin entrada hoy':'🟡 Entrada registrada — pendiente salida'}
+       </span>`;
+    document.getElementById('cam-title').textContent = label;
+    cc.style.display='block';
+    resetCamUI();
+  }
+}
+
+function getRegHoy(nombre){
+  return registros.find(r=>r.nombre===nombre && r.fecha===hoy()) || null;
+}
+
+// ─────────────────────────────────────────
+//  CÁMARA REGISTRO
+// ─────────────────────────────────────────
+// Convierte File a base64 redimensionado
+function resizeFileToB64(file, maxPx=512){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const scale=Math.min(1,maxPx/Math.max(img.width,img.height));
+        const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+        const c=document.createElement('canvas');
+        c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(c.toDataURL('image/jpeg',0.82).split(',')[1]);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function verificarPin(){
+  const pinIngresado=document.getElementById('input-pin').value.trim();
+  if(!pinIngresado||pinIngresado.length!==4){
+    toast('Ingresa tu PIN de 4 dígitos','err'); return;
+  }
+  if(!trabajadorSeleccionado){
+    toast('Selecciona un trabajador primero','err'); return;
+  }
+  const pinOk = trabajadorSeleccionado.pinHash
+    ? (await pinHashDe(trabajadorSeleccionado.id, pinIngresado)) === trabajadorSeleccionado.pinHash
+    : pinIngresado === String(trabajadorSeleccionado.pin);
+  if(!pinOk){
+    document.getElementById('input-pin').value='';
+    toast('❌ PIN incorrecto — intenta de nuevo','err'); return;
+  }
+  document.getElementById('pin-step').style.display='none';
+  document.getElementById('foto-step').style.display='block';
+  toast('✅ PIN correcto','ok');
+}
+
+function onFotoSeleccionada(e){
+  const file=e.target.files[0]; if(!file) return;
+  resizeFileToB64(file,512).then(b64=>{
+    fotoBase64=b64;
+    document.getElementById('foto-img').src='data:image/jpeg;base64,'+b64;
+    document.getElementById('foto-preview').style.display='block';
+    document.getElementById('foto-drop').style.display='none';
+    document.getElementById('result-box').style.display='none';
+  });
+  e.target.value='';
+}
+
+function repetir(){
+  fotoBase64=null;
+  const fp=document.getElementById('foto-preview');
+  if(fp) fp.style.display='none';
+  const fd=document.getElementById('foto-drop');
+  if(fd) fd.style.display='flex';
+}
+
+function resetCamUI(){
+  fotoBase64=null;
+  const pip=document.getElementById('input-pin');
+  if(pip) pip.value='';
+  if(window.ocultarClaves) ocultarClaves();
+  const ps=document.getElementById('pin-step');
+  if(ps) ps.style.display='block';
+  const fs=document.getElementById('foto-step');
+  if(fs) fs.style.display='none';
+  const fp=document.getElementById('foto-preview');
+  if(fp) fp.style.display='none';
+  const fd=document.getElementById('foto-drop');
+  if(fd) fd.style.display='flex';
+  const rb=document.getElementById('result-box');
+  if(rb) rb.style.display='none';
+}
+
+function abrirCamara(){ /* reemplazado por input file */ }
+function pararCamaras(){ streamReg=null; streamNW=null; }
+
+// ─────────────────────────────────────────
+//  VERIFICAR CON CLAUDE
+// ─────────────────────────────────────────
+// Limpia el base64: elimina prefijo data:... si existe y espacios/saltos
+function cleanB64(str){
+  if(!str) return null;
+  const s = str.trim();
+  if(s.includes(',')) return s.split(',')[1].trim();
+  return s.trim();
+}
+
+// Redimensiona un base64 a max 512px para no saturar la API ni localStorage
+function resizeB64(b64, maxPx=512){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const scale=Math.min(1, maxPx/Math.max(img.width,img.height));
+      const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+      const c=document.createElement('canvas');
+      c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(c.toDataURL('image/jpeg',0.80).split(',')[1]);
+    };
+    img.onerror=()=>resolve(b64); // si falla, usar original
+    img.src='data:image/jpeg;base64,'+b64;
+  });
+}
+
+async function verificar(){
+  if(!fotoBase64){ toast('Primero toma la foto','err'); return; }
+  if(!trabajadorSeleccionado){ toast('Selecciona un trabajador','err'); return; }
+
+  const fotoRef = cleanB64(trabajadorSeleccionado.foto);
+  if(!fotoRef){ toast('Este trabajador no tiene foto de referencia válida','err'); return; }
+
+  document.getElementById('verif-overlay').classList.add('show');
+  document.getElementById('btn-verificar').disabled=true;
+
+  try {
+    // Redimensionar ambas fotos antes de enviar
+    const [imgRef, imgSelfie] = await Promise.all([
+      resizeB64(fotoRef, 512),
+      resizeB64(cleanB64(fotoBase64), 512)
+    ]);
+
+    if(!imgRef || !imgSelfie) throw new Error('Error procesando imágenes');
+
+    const prompt = `Tienes dos imágenes. La PRIMERA es la foto de referencia del trabajador "${trabajadorSeleccionado.nombre}". La SEGUNDA es una selfie tomada ahora para verificar su identidad.
+
+¿Son la misma persona? Compara rasgos faciales, estructura ósea, tono de piel. Ignora iluminación, ángulo, ropa o expresión.
+
+Responde ÚNICAMENTE con JSON válido, sin texto antes ni después:
+{"coincide":true,"confianza":"alta","razon":"texto breve"}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: [
+            { type:'image', source:{type:'base64', media_type:'image/jpeg', data: imgRef} },
+            { type:'image', source:{type:'base64', media_type:'image/jpeg', data: imgSelfie} },
+            { type:'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if(!response.ok){
+      const err = await response.json().catch(()=>({}));
+      throw new Error(err?.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if(data.error) throw new Error(data.error.message);
+
+    const txt = data.content?.map(c=>c.text||'').join('').trim();
+    if(!txt) throw new Error('Respuesta vacía de Claude');
+
+    let result;
+    try {
+      const clean = txt.replace(/```json|```/g,'').trim();
+      const start = clean.indexOf('{'), end = clean.lastIndexOf('}');
+      result = JSON.parse(clean.slice(start, end+1));
+    } catch {
+      throw new Error('Formato de respuesta inesperado: '+txt.slice(0,80));
+    }
+
+    document.getElementById('verif-overlay').classList.remove('show');
+    mostrarResultado(result);
+
+  } catch(e) {
+    document.getElementById('verif-overlay').classList.remove('show');
+    document.getElementById('btn-verificar').disabled=false;
+    console.error('Error verificar:', e);
+    toast('❌ '+e.message,'err');
+  }
+}
+
+function mostrarResultado(result){
+  const box=document.getElementById('result-box');
+  box.style.display='block';
+
+  if(result.coincide && result.confianza !== 'baja'){
+    box.className='result-box ok';
+    box.innerHTML=`
+      <div class="result-title">✅ Identidad verificada</div>
+      <div class="result-sub">Confianza: ${result.confianza} · ${result.razon}</div>`;
+
+    // Registrar automáticamente
+    registrarEvento();
+  } else {
+    box.className='result-box fail';
+    box.innerHTML=`
+      <div class="result-title">❌ No coincide</div>
+      <div class="result-sub">${result.razon}</div>`;
+    document.getElementById('btn-verificar').disabled=false;
+    toast('Verificación fallida — intenta de nuevo','err');
+  }
+}
+
+// ─────────────────────────────────────────
+//  REGISTRAR ENTRADA / SALIDA
+// ─────────────────────────────────────────
+async function registrarEvento(){
+  const nombre=trabajadorSeleccionado.nombre;
+  const ahora=Date.now();
+  const reg=getRegHoy(nombre);
+  const ubic = ubicacionActual
+    ? {lat:ubicacionActual.lat, lng:ubicacionActual.lng, precision:ubicacionActual.precision}
+    : null;
+
+  try{
+    if(!reg){
+      // ENTRADA
+      await window.FB.addDoc(window.FB.collection(window.FB.db,'registros'),{
+        nombre, cargo:trabajadorSeleccionado.cargo, trabajadorId:trabajadorSeleccionado.id||null,
+        fecha:hoy(), entrada:ahora, salida:null,
+        ubicEntrada:ubic, ubicSalida:null,
+        creado: window.FB.serverTimestamp()
+      });
+      toast(`✅ Entrada registrada — ${fmt(ahora)}`,'ok');
+    } else {
+      // SALIDA
+      await window.FB.updateDoc(
+        window.FB.doc(window.FB.db,'registros',reg.id),
+        {salida:ahora, ubicSalida:ubic}
+      );
+      const dur=fmtDur(ahora-reg.entrada);
+      toast(`✅ Salida registrada — ${fmt(ahora)} · ${dur}`,'ok');
+    }
+    setTimeout(()=>{ onSelectTrabajador(); },1200);
+  }catch(e){
+    console.error('Error registrando evento:', e);
+    toast('❌ Error guardando registro: '+e.message,'err');
+    document.getElementById('btn-verificar').disabled=false;
+  }
+}
+
+// ─────────────────────────────────────────
+//  TRABAJADORES — NUEVA CÁMARA
+// ─────────────────────────────────────────
+function onFotoNWSeleccionada(e){
+  const file=e.target.files[0]; if(!file) return;
+  resizeFileToB64(file,512).then(b64=>{
+    fotoNWBase64=b64;
+    document.getElementById('foto-img-nw').src='data:image/jpeg;base64,'+b64;
+    document.getElementById('foto-preview-nw').style.display='block';
+    document.getElementById('foto-drop-nw').style.display='none';
+    toast('Foto de referencia lista','ok');
+  });
+  e.target.value='';
+}
+
+function abrirCamaraNW(){ document.getElementById('input-foto-nw').click(); }
+function capturarNW(){ document.getElementById('input-foto-nw').click(); }
+function repetirNW(){
+  fotoNWBase64=null;
+  document.getElementById('foto-preview-nw').style.display='none';
+  document.getElementById('foto-drop-nw').style.display='flex';
+}
+
+async function guardarTrabajador(){
+  const nombre=document.getElementById('nw-nombre').value.trim();
+  const cedula=document.getElementById('nw-cedula').value.trim();
+  const cargo=document.getElementById('nw-cargo').value.trim();
+  const salario=parseFloat(document.getElementById('nw-salario').value)||0;
+  const pin=document.getElementById('nw-pin').value.trim();
+
+  if(!nombre||!cargo){ toast('Completa nombre y cargo','err'); return; }
+  if(!cedula){ toast('Ingresa la cédula del trabajador','err'); return; }
+  if(!salario){ toast('Ingresa el salario básico','err'); return; }
+  if(!pin||pin.length!==4||isNaN(pin)){ toast('Genera el PIN primero','err'); return; }
+  if(!fotoNWBase64){ toast('Toma una foto de referencia del trabajador','err'); return; }
+
+  // ── Validar duplicados por cédula (identificador único) ─────────────
+  const dupCedula = trabajadores.find(t =>
+    String(t.cedula).trim() === String(cedula).trim());
+  if(dupCedula){
+    toast(`❌ Ya existe el trabajador ${dupCedula.nombre} con cédula ${cedula}`, 'err');
+    return;
+  }
+  const dupPin = trabajadores.find(t => t.pin === pin);
+  if(dupPin){
+    toast('❌ Este PIN ya está en uso. Genera uno nuevo.', 'err');
+    generarPinNuevo();
+    return;
+  }
+
+  const fotoGuardar = cleanB64(fotoNWBase64);
+
+  try{
+    const nuevo = await window.FB.addDoc(window.FB.collection(window.FB.db,'trabajadores'),{
+      nombre, cedula, cargo, salario, pin, foto:fotoGuardar, creado:Date.now()
+    });
+    await window.FB.setDoc(window.FB.doc(window.FB.db,'trabajadores_publico',nuevo.id),
+      {nombre, cargo, pinHash: await pinHashDe(nuevo.id, pin)});
+    await cargarTrabajadores();
+
+    // Reset form
+    document.getElementById('nw-nombre').value='';
+  generarPinNuevo();
+    document.getElementById('nw-cargo').value='';
+    document.getElementById('nw-salario').value='';
+    document.getElementById('nw-pin').value='';
+    fotoNWBase64=null;
+    document.getElementById('foto-preview-nw').style.display='none';
+    document.getElementById('foto-drop-nw').style.display='flex';
+
+    toast(`✅ ${nombre} registrado correctamente`,'ok');
+  }catch(e){
+    console.error('Error guardando trabajador:', e);
+    toast('❌ Error: '+e.message,'err');
+  }
+}
+
+
+// ── Traído de la v9: editar cédula, limpiar duplicados y ver registros del periodo ──
+async function editarCedula(i){
+  const w = trabajadores[i];
+  const nueva = prompt(`Trabajador: ${w.nombre}\nIngrese la cédula:`, w.cedula||'');
+  if(nueva===null) return;
+  const ced = nueva.replace(/\D/g,'');
+  if(!ced){ toast('Cédula inválida','err'); return; }
+  const dup = trabajadores.find((t,idx)=>idx!==i && t.cedula && String(t.cedula)===ced);
+  if(dup){ toast(`❌ Esa cédula ya pertenece a ${dup.nombre}`,'err'); return; }
+  try{
+    await window.FB.updateDoc(window.FB.doc(window.FB.db,'trabajadores',w.id), {cedula:ced});
+    await cargarTrabajadores();
+    toast(`✅ Cédula de ${w.nombre} actualizada`,'ok');
+  }catch(e){ toast('❌ Error: '+e.message,'err'); }
+}
+
+async function limpiarDuplicados(){
+  // Duplicado = mismo nombre (o misma cédula). Se conserva el registro más reciente.
+  const grupos = {};
+  trabajadores.forEach(w=>{
+    const k = w.cedula ? 'cc:'+String(w.cedula).trim() : 'n:'+String(w.nombre||'').trim().toLowerCase();
+    (grupos[k] = grupos[k] || []).push(w);
+  });
+  const sobran = [];
+  Object.values(grupos).forEach(g=>{ if(g.length>1){ g.sort((a,b)=>(b.creado||0)-(a.creado||0)); sobran.push(...g.slice(1)); } });
+  if(!sobran.length){ toast('No se encontraron duplicados','info'); return; }
+  if(!confirm(`Se encontraron ${sobran.length} duplicado(s):\n\n${sobran.map(w=>'• '+w.nombre+(w.cedula?' (CC '+w.cedula+')':'')).join('\n')}\n\nSe conserva el registro más reciente de cada uno. ¿Eliminar los duplicados?`)) return;
+  try{
+    for(const w of sobran){
+      await window.FB.deleteDoc(window.FB.doc(window.FB.db,'trabajadores',w.id));
+      await window.FB.deleteDoc(window.FB.doc(window.FB.db,'trabajadores_publico',w.id)).catch(()=>{});
+    }
+    await cargarTrabajadores();
+    toast(`✅ ${sobran.length} duplicado(s) eliminado(s)`,'ok');
+  }catch(e){ toast('❌ Error: '+e.message,'err'); }
+}
+
+async function verRegistrosPeriodo(){
+  poblarSelectoresExport();
+  const mes  = parseInt(document.getElementById('sel-mes-export').value);
+  const anio = parseInt(document.getElementById('sel-anio-export').value);
+  const q    = parseInt(document.getElementById('sel-quincena-export').value);
+  const diaIni = q===1 ? 1 : 16, diaFin = q===1 ? 15 : new Date(anio, mes+1, 0).getDate();
+  const fechas = [];
+  for(let d=diaIni; d<=diaFin; d++) fechas.push(new Date(anio,mes,d).toLocaleDateString('es-CO',{year:'numeric',month:'2-digit',day:'2-digit'}));
+  const el = document.getElementById('lista-periodo');
+  el.innerHTML = '<div class="card" style="color:var(--muted)">Cargando registros…</div>';
+  try{
+    const snap = await window.FB.getDocs(window.FB.query(window.FB.collection(window.FB.db,'registros'),
+      window.FB.where('fecha','in',fechas.slice(0,10))));
+    let regs = snap.docs.map(d=>d.data());
+    if(fechas.length>10){
+      const snap2 = await window.FB.getDocs(window.FB.query(window.FB.collection(window.FB.db,'registros'),
+        window.FB.where('fecha','in',fechas.slice(10))));
+      regs = regs.concat(snap2.docs.map(d=>d.data()));
+    }
+    const titulo = `Quincena ${q} · ${diaIni} al ${diaFin} de ${MESES_NOMBRE[mes].toLowerCase()} de ${anio}`;
+    if(!regs.length){ el.innerHTML = `<div class="card"><div class="card-title">${titulo}</div><div style="color:var(--muted)">Sin registros en ese periodo.</div></div>`; return; }
+    const por = {};
+    regs.forEach(r=>{
+      const p = por[r.nombre] = por[r.nombre] || {dias:0, horas:0, abiertos:0};
+      p.dias++;
+      if(r.entrada && r.salida) p.horas += (r.salida-r.entrada)/3600000; else p.abiertos++;
+    });
+    const filas = Object.entries(por).sort((a,b)=>a[0].localeCompare(b[0],'es'));
+    el.innerHTML = `<div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between"><span>${titulo}</span>
+        <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="document.getElementById('lista-periodo').innerHTML=''">Cerrar</button></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${regs.length} registros · ${filas.length} trabajadores</div>
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <tr style="color:var(--muted);text-align:left"><th style="padding:6px 4px">Trabajador</th><th style="padding:6px 4px;text-align:right">Días</th><th style="padding:6px 4px;text-align:right">Horas</th><th style="padding:6px 4px;text-align:right">Sin salida</th></tr>
+        ${filas.map(([n,p])=>`<tr style="border-top:1px solid var(--border)"><td style="padding:6px 4px">${n}</td><td style="padding:6px 4px;text-align:right">${p.dias}</td><td style="padding:6px 4px;text-align:right">${p.horas.toLocaleString('es-CO',{maximumFractionDigits:1})}</td><td style="padding:6px 4px;text-align:right;color:${p.abiertos?'var(--amber)':'var(--muted)'}">${p.abiertos}</td></tr>`).join('')}
+      </table></div>`;
+  }catch(e){ el.innerHTML=''; toast('❌ Error: '+e.message,'err'); }
+}
+
+async function eliminarTrabajador(i){
+  const w = trabajadores[i];
+  if(!confirm(`¿Eliminar a ${w.nombre}?`)) return;
+  try{
+    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    await deleteDoc(window.FB.doc(window.FB.db,'trabajadores',w.id));
+    await deleteDoc(window.FB.doc(window.FB.db,'trabajadores_publico',w.id)).catch(()=>{});
+    await cargarTrabajadores();
+    toast('Trabajador eliminado','info');
+  }catch(e){
+    console.error('Error eliminando:', e);
+    toast('❌ Error: '+e.message,'err');
+  }
+}
+
+function renderTrabajadores(){
+  const el=document.getElementById('lista-trabajadores');
+  if(!trabajadores.length){
+    el.innerHTML=`<div class="empty-state"><div class="icon">👤</div><p>No hay trabajadores registrados aún.</p></div>`;
+    return;
+  }
+  el.innerHTML=trabajadores.map((w,i)=>`
+    <div class="worker-item">
+      ${w.foto
+        ? `<img class="worker-avatar" src="data:image/jpeg;base64,${w.foto}" alt="">`
+        : `<div class="worker-avatar-ph">👤</div>`}
+      <div class="worker-info">
+        <div class="worker-name">${w.nombre}</div>
+        <div class="worker-cargo">${w.cargo} · ${w.salario?'$'+Math.round(w.salario).toLocaleString('es-CO'):'Sin salario'}</div>
+        <div class="worker-cargo" style="font-size:11px;color:var(--muted)">CC: ${w.cedula||'Sin cédula'}</div>
+      </div>
+      <div class="worker-actions">
+        <button class="btn btn-outline btn-sm" onclick="editarCedula(${i})" title="Editar cédula">✏️</button>
+        <button class="btn btn-outline btn-sm" onclick="eliminarTrabajador(${i})" title="Eliminar">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────
+//  HISTORIAL
+// ─────────────────────────────────────────
+function renderHistorial(){
+  const el=document.getElementById('lista-historial');
+  const hoyStr=hoy();
+  const regsHoy=registros.filter(r=>r.fecha===hoyStr).reverse();
+
+  if(!regsHoy.length){
+    el.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>Sin registros hoy.</p></div>`;
+    return;
+  }
+
+  el.innerHTML=regsHoy.map(r=>{
+    const clase=r.salida?'completo':r.entrada?'entrada':'pendiente';
+    const dur=r.salida?fmtDur(r.salida-r.entrada):'En turno';
+    return `<div class="reg-item ${clase}">
+      <div class="reg-header">
+        <div class="reg-name">${r.nombre}</div>
+        <span class="badge ${r.salida?'badge-blue':r.entrada?'badge-green':'badge-amber'}">
+          ${r.salida?'✅ Completo':r.entrada?'🟢 En turno':'⏳ Pendiente'}
+        </span>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">${r.cargo} · ${dur}</div>
+      <div class="reg-times">
+        <div class="reg-time-block">
+          <div class="reg-time-label">🟢 Entrada</div>
+          <div class="reg-time-val" style="color:var(--green)">${fmt(r.entrada)}</div>
+        </div>
+        <div class="reg-time-block">
+          <div class="reg-time-label">🔴 Salida</div>
+          <div class="reg-time-val" style="color:${r.salida?'var(--red)':'var(--muted)'}">${fmt(r.salida)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+//  EXPORTAR EXCEL
+// ─────────────────────────────────────────
+function exportarExcel(){
+  const hoyStr=hoy();
+  const regsHoy=registros.filter(r=>r.fecha===hoyStr);
+
+  if(!regsHoy.length){ toast('No hay registros hoy para exportar','err'); return; }
+
+  const ubicTxt = u => u ? `${u.lat.toFixed(5)}, ${u.lng.toFixed(5)}` : 'Sin ubicación';
+
+  const data=[
+    ['Nombre','Cargo','Fecha','Hora Entrada','Hora Salida','Horas Trabajadas','Ubicación Entrada','Ubicación Salida'],
+    ...regsHoy.map(r=>([
+      r.nombre, r.cargo, r.fecha,
+      r.entrada ? new Date(r.entrada).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : '',
+      r.salida  ? new Date(r.salida).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : 'Sin registrar',
+      r.salida  ? fmtDur(r.salida-r.entrada) : '',
+      ubicTxt(r.ubicEntrada),
+      ubicTxt(r.ubicSalida)
+    ]))
+  ];
+
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(data);
+
+  // Anchos de columna
+  ws['!cols']=[{wch:25},{wch:20},{wch:14},{wch:14},{wch:14},{wch:18},{wch:22},{wch:22}];
+
+  // Estilo encabezado (fila 1)
+  ['A1','B1','C1','D1','E1','F1','G1','H1'].forEach(cell=>{
+    if(ws[cell]) ws[cell].s={
+      font:{bold:true,color:{rgb:'FFFFFF'}},
+      fill:{fgColor:{rgb:'0D2B5E'}},
+      alignment:{horizontal:'center'}
+    };
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Asistencia');
+
+  const fecha=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `Asistencia_QuickLine_${fecha}.xlsx`);
+  toast('✅ Excel descargado correctamente','ok');
+}
+
+async function limpiarHistorial(){
+  const hoyStr=hoy();
+  const regsHoy=registros.filter(r=>r.fecha===hoyStr);
+  if(!regsHoy.length){ toast('No hay registros de hoy','info'); return; }
+  if(!confirm(`¿Eliminar ${regsHoy.length} registros de hoy?`)) return;
+  try{
+    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    await Promise.all(regsHoy.map(r=>deleteDoc(window.FB.doc(window.FB.db,'registros',r.id))));
+    toast('Registros eliminados','info');
+  }catch(e){
+    console.error('Error eliminando historial:', e);
+    toast('❌ Error: '+e.message,'err');
+  }
+}
+
+
+// ─────────────────────────────────────────
+//  PWA — Instalar como app
+// ─────────────────────────────────────────
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const banner = document.getElementById('install-banner');
+  if(banner) banner.style.display = 'flex';
+});
+
+function instalarPWA() {
+  const banner = document.getElementById('install-banner');
+  if(banner) banner.style.display = 'none';
+  if(!deferredPrompt) {
+    // iPhone — mostrar instrucciones manuales
+    toast('En Safari: toca Compartir → "Agregar a pantalla de inicio" 📲', 'info');
+    return;
+  }
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(choice => {
+    if(choice.outcome === 'accepted') toast('✅ App instalada correctamente', 'ok');
+    deferredPrompt = null;
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  toast('✅ Quick Line instalada como app', 'ok');
+  deferredPrompt = null;
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPORTAR QUINCENA COMPLETA — todos los días y trabajadores
+// ═══════════════════════════════════════════════════════════════════
+async function exportarQuincenaCompleta() {
+
+  if (!fbReady) { toast('Sin conexión a Firebase', 'err'); return; }
+
+  // Determinar quincena a exportar según lo elegido por el usuario
+  // (antes esto siempre se calculaba a partir de la fecha de hoy, por eso
+  //  no se podía descargar el mes/quincena que el usuario quería)
+  const selMes  = document.getElementById('sel-mes-export');
+  const selAnio = document.getElementById('sel-anio-export');
+  const selQuin = document.getElementById('sel-quincena-export');
+
+  poblarSelectoresExport(); // asegura que los selects tengan opciones aunque no se haya visitado la pestaña
+
+  const mes = selMes && selMes.value !== '' ? parseInt(selMes.value) : new Date().getMonth();
+  const anio = selAnio && selAnio.value !== '' ? parseInt(selAnio.value) : new Date().getFullYear();
+  const nQuincena = selQuin && selQuin.value !== '' ? parseInt(selQuin.value) : (new Date().getDate() <= 15 ? 1 : 2);
+
+  // Fechas de la quincena
+  const diaIni = nQuincena === 1 ? 1 : 16;
+  const diaFin = nQuincena === 1 ? 15 : new Date(anio, mes+1, 0).getDate();
+
+  toast(`Cargando quincena ${nQuincena} de ${MESES_NOMBRE[mes]} ${anio}... espera`, 'info');
+
+  try {
+    // Cargar TODOS los registros de la quincena desde Firebase
+    const { getDocs, collection, query, where } = window.FB;
+
+    // Generar array de fechas de la quincena
+    const fechas = [];
+    for (let d = diaIni; d <= diaFin; d++) {
+      const f = new Date(anio, mes, d);
+      fechas.push(f.toLocaleDateString('es-CO', {year:'numeric',month:'2-digit',day:'2-digit'}));
+    }
+
+    // Consultar registros de todo el período
+    const snap = await getDocs(query(
+      collection(window.FB.db, 'registros'),
+      where('fecha', '>=', fechas[0]),
+      where('fecha', '<=', fechas[fechas.length-1])
+    ));
+
+    const todosRegistros = snap.docs.map(d => ({id:d.id, ...d.data()}));
+
+    if (!todosRegistros.length) {
+      toast('No hay registros en esta quincena', 'err');
+      return;
+    }
+
+    // Organizar por trabajador y fecha
+    // { nombre: { fecha: {entrada, salida, cargo} } }
+    const porTrabajador = {};
+    trabajadores.forEach(t => {
+      porTrabajador[t.nombre] = { info: t, dias: {} };
+    });
+
+    todosRegistros.forEach(r => {
+      if (!r.nombre || !r.fecha) return;
+      if (!porTrabajador[r.nombre]) {
+        const trab = trabajadores.find(t => t.nombre === r.nombre);
+        porTrabajador[r.nombre] = { info: trab || {nombre:r.nombre, cargo:r.cargo||'', salario:1750904, cedula:''}, dias: {} };
+      }
+      if (r.entrada && r.salida) {
+        porTrabajador[r.nombre].dias[r.fecha] = r;
+      }
+    });
+
+    const wb = XLSX.utils.book_new();
+
+    // ══════════════════════════════════════════════════════════════
+    // HOJA 1 — RESUMEN QUINCENA (una fila por trabajador)
+    // ══════════════════════════════════════════════════════════════
+    const mesesNombre = MESES_NOMBRE; // usa el listado global de meses
+
+    const HDR_RES = [
+      'N°','CÉDULA','NOMBRE','OFICIO','SALARIO BASE',
+      'DÍAS TRAB.','H.NETAS TOTAL',
+      'H.DIUR.ORD','H.DIUR.REC(+25%)','H.NOCT(+35%)',
+      'VAL.DIUR.ORD','VAL.DIUR.REC','VAL.NOCT',
+      'TOTAL DEVENGADO','ESTADO (mín. 84h)'
+    ];
+
+    const filasRes = [];
+    let numEmp = 0;
+
+    Object.values(porTrabajador).forEach(({info, dias}) => {
+      const salario = parseInt(info.salario) || 1750904;
+      const VH = salario / NOMINA.HORAS_MES;
+      let diasTrab=0, h_netas=0, h_diur_ord=0, h_diur_rec=0, h_noct=0;
+      let v_diur_ord=0, v_diur_rec=0, v_noct=0;
+
+      fechas.forEach(fecha => {
+        const reg = dias[fecha];
+        if (reg && reg.entrada && reg.salida) {
+          diasTrab++;
+          const calc = calcularHoras(reg.entrada, reg.salida, salario);
+          h_netas    += calc.netas;
+          h_diur_ord += calc.h_diur_ord;
+          h_diur_rec += calc.h_diur_rec;
+          h_noct     += calc.h_noct;
+          v_diur_ord += calc.val_diur_ord;
+          v_diur_rec += calc.val_diur_rec;
+          v_noct     += calc.val_noct;
+        }
+      });
+
+      if (diasTrab === 0) return; // omitir si no trabajó
+
+      numEmp++;
+      const total = v_diur_ord + v_diur_rec + v_noct;
+      const hMin = 84;
+      const diff = +(h_netas - hMin).toFixed(1);
+      const estado = diff >= 0
+        ? `✅ CUMPLE  +${diff}h sobre 84h`
+        : `⚠ FALTAN  ${diff}h para 84h`;
+
+      filasRes.push([
+        numEmp,
+        info.cedula || '',
+        info.nombre || '',
+        info.cargo || info.oficio || '',
+        salario,
+        diasTrab,
+        +h_netas.toFixed(2),
+        +h_diur_ord.toFixed(2),
+        +h_diur_rec.toFixed(2),
+        +h_noct.toFixed(2),
+        Math.round(v_diur_ord),
+        Math.round(v_diur_rec),
+        Math.round(v_noct),
+        Math.round(total),
+        estado
+      ]);
+    });
+
+    // Totales
+    const sumCol = (ci) => filasRes.reduce((s,r)=>s+(r[ci]||0),0);
+    const cumplen = filasRes.filter(r => r[14] && r[14].startsWith('✅')).length;
+    const totRes = [
+      '','','TOTALES','','',
+      sumCol(5),
+      +sumCol(6).toFixed(2),
+      +sumCol(7).toFixed(2),
+      +sumCol(8).toFixed(2),
+      +sumCol(9).toFixed(2),
+      Math.round(sumCol(10)),
+      Math.round(sumCol(11)),
+      Math.round(sumCol(12)),
+      Math.round(sumCol(13)),
+      `${cumplen} de ${filasRes.length} cumplen 84h`
+    ];
+
+    const periodoStr = `Quincena ${nQuincena} — ${diaIni} al ${diaFin} de ${mesesNombre[mes]} ${anio}`;
+    const wsRes = XLSX.utils.aoa_to_sheet([
+      [`QUICK LINE TRANSPORTES S.A.S — RESUMEN ${periodoStr.toUpperCase()}`],
+      [`Período: ${periodoStr} | Trabajadores: ${numEmp} | Sin auxilio de transporte | Sin recargo festivos`],
+      [],
+      HDR_RES,
+      ...filasRes,
+      totRes
+    ]);
+    wsRes['!cols'] = [
+      {wch:4},{wch:13},{wch:28},{wch:20},{wch:13},
+      {wch:9},{wch:11},
+      {wch:11},{wch:15},{wch:11},
+      {wch:13},{wch:13},{wch:13},
+      {wch:16},{wch:22}
+    ];
+    XLSX.utils.book_append_sheet(wb, wsRes, `RESUMEN Q${nQuincena}`);
+
+    // ══════════════════════════════════════════════════════════════
+    // HOJA 2 — DETALLE DIARIO (una fila por trabajador por día)
+    // ══════════════════════════════════════════════════════════════
+    const HDR_DET = [
+      'N°','CÉDULA','NOMBRE','OFICIO','SALARIO',
+      'FECHA','DÍA','ENTRADA','SALIDA',
+      'H.BRUTAS','ALIM.','H.NETAS',
+      'H.DIUR.ORD','H.DIUR.REC','H.NOCT',
+      'VAL.DIUR.ORD','VAL.DIUR.REC','VAL.NOCT',
+      'TOTAL DÍA'
+    ];
+
+    const diasSemana = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+    const filasDet = [];
+    let nFila = 0;
+
+    Object.values(porTrabajador).forEach(({info, dias}) => {
+      const salario = parseInt(info.salario) || 1750904;
+      let hayRegistro = false;
+
+      fechas.forEach((fecha, idx) => {
+        const reg = dias[fecha];
+        if (!reg || !reg.entrada || !reg.salida) return;
+        hayRegistro = true;
+        nFila++;
+
+        const fechaDate = new Date(anio, mes, diaIni + idx);
+        const diaSem = diasSemana[fechaDate.getDay()];
+        const calc = calcularHoras(reg.entrada, reg.salida, salario);
+
+        filasDet.push([
+          nFila,
+          info.cedula || '',
+          info.nombre || '',
+          info.cargo || info.oficio || '',
+          salario,
+          fecha,
+          diaSem,
+          fmt2(reg.entrada),
+          fmt2(reg.salida),
+          calc.brutas,
+          calc.alim,
+          calc.netas,
+          calc.h_diur_ord,
+          calc.h_diur_rec,
+          calc.h_noct,
+          calc.val_diur_ord,
+          calc.val_diur_rec,
+          calc.val_noct,
+          calc.total
+        ]);
+      });
+    });
+
+    const wsDet = XLSX.utils.aoa_to_sheet([
+      [`QUICK LINE TRANSPORTES S.A.S — DETALLE DIARIO ${periodoStr.toUpperCase()}`],
+      [`Período: ${periodoStr} | Total registros: ${filasDet.length}`],
+      [],
+      HDR_DET,
+      ...filasDet
+    ]);
+    wsDet['!cols'] = [
+      {wch:4},{wch:13},{wch:24},{wch:18},{wch:13},
+      {wch:12},{wch:5},{wch:9},{wch:9},
+      {wch:9},{wch:6},{wch:9},
+      {wch:11},{wch:11},{wch:9},
+      {wch:13},{wch:13},{wch:13},
+      {wch:13}
+    ];
+    XLSX.utils.book_append_sheet(wb, wsDet, `DETALLE Q${nQuincena}`);
+
+    // ══════════════════════════════════════════════════════════════
+    // HOJA 3 — EMPLEADOS
+    // ══════════════════════════════════════════════════════════════
+    const HDR_EMP = ['N°','CÉDULA','NOMBRE COMPLETO','OFICIO','SALARIO BASE','ESTADO'];
+    const wsEmp = XLSX.utils.aoa_to_sheet([
+      ['QUICK LINE TRANSPORTES S.A.S — LISTADO DE TRABAJADORES'],
+      [`Total registrados: ${trabajadores.length}`],
+      [],
+      HDR_EMP,
+      ...trabajadores.map((t,i) => [
+        i+1, t.cedula||'', t.nombre||'',
+        t.cargo||t.oficio||'',
+        parseInt(t.salario)||1750904,
+        'ACTIVO'
+      ])
+    ]);
+    wsEmp['!cols'] = [{wch:5},{wch:16},{wch:36},{wch:22},{wch:14},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, wsEmp, 'EMPLEADOS');
+
+    // Descargar
+    const fechaHoy = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `QuickLine_Quincena${nQuincena}_${mesesNombre[mes]}_${anio}.xlsx`);
+    const cumplenFinal = filasRes.filter(r=>r[14]&&r[14].startsWith('✅')).length;
+    toast(`✅ Quincena ${nQuincena} — ${numEmp} trabajadores | ${cumplenFinal} cumplen 84h mín.`, 'ok');
+
+  } catch(e) {
+    console.error('Error exportando quincena:', e);
+    toast('Error al exportar: ' + e.message, 'err');
+  }
+}
+
+
+function generarPinNuevo() {
+  // Generar PIN de 4 dígitos único
+  let pin;
+  let intentos = 0;
+  do {
+    pin = String(Math.floor(1000 + Math.random() * 9000));
+    intentos++;
+  } while (trabajadores.some(t => t.pin === pin) && intentos < 100);
+  
+  const input = document.getElementById('nw-pin');
+  if (input) {
+    input.value = pin;
+    input.style.color = 'var(--green)';
+    toast(`PIN generado: ${pin} — anótalo`, 'ok');
+  }
+}
+
+// ─────────────────────────────────────────
+//  INIT — se ejecuta tras login, no aquí
+// ─────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  EXPORTAR AL FORMATO QUICK LINE (integrado con el Excel de nómina)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Constantes de nómina Quick Line
+const NOMINA = {
+  HORAS_MES: 230,
+  JORNADA: 7.0,
+  ALIM: 1.0,
+  // Franjas horarias
+  DIA_INI: 6,   // 6:00 am
+  DIA_FIN: 19,  // 7:00 pm
+  // Recargos
+  R_NOC: 1.35,   // nocturna +35%
+  R_ED:  1.25,   // diurna con recargo +25% (horas que superan 7h diurnas)
+};
+
+// Calcula todos los tipos de hora según legislación colombiana / Quick Line
+function calcularHoras(entradaMs, salidaMs, salario) {
+  const VH = salario / NOMINA.HORAS_MES;
+
+  const entH = new Date(entradaMs).getHours() + new Date(entradaMs).getMinutes()/60;
+  const salH_raw = new Date(salidaMs).getHours() + new Date(salidaMs).getMinutes()/60;
+  const salH = salidaMs < entradaMs ? salH_raw + 24 : salH_raw;
+
+  const brutas = salH - entH;
+
+  // Diurnas brutas (6am-7pm)
+  const hd_brut = Math.max(0, Math.min(salH, NOMINA.DIA_FIN) - Math.max(entH, NOMINA.DIA_INI));
+  const hn_brut = Math.max(0, brutas - hd_brut);
+
+  // Alimentación solo de diurnas
+  const hd_neta = Math.max(0, hd_brut - NOMINA.ALIM);
+  const hn_neta = hn_brut;
+  const netas   = hd_neta + hn_neta;
+
+  // Diurnas: ordinaria (base) hasta 7h, recargo +25% el excedente
+  const h_diur_ord = Math.min(hd_neta, NOMINA.JORNADA);
+  const h_diur_rec = Math.max(0, hd_neta - NOMINA.JORNADA);
+  // Nocturnas: siempre +35%
+  const h_noct = hn_neta;
+
+  const val_diur_ord = h_diur_ord * VH;
+  const val_diur_rec = h_diur_rec * VH * NOMINA.R_ED;
+  const val_noct     = h_noct     * VH * NOMINA.R_NOC;
+  const total        = val_diur_ord + val_diur_rec + val_noct;
+
+  return {
+    brutas:       +brutas.toFixed(2),
+    alim:         NOMINA.ALIM,
+    netas:        +netas.toFixed(2),
+    h_diur_ord:   +h_diur_ord.toFixed(2),
+    h_diur_rec:   +h_diur_rec.toFixed(2),
+    h_noct:       +h_noct.toFixed(2),
+    val_diur_ord: Math.round(val_diur_ord),
+    val_diur_rec: Math.round(val_diur_rec),
+    val_noct:     Math.round(val_noct),
+    total:        Math.round(total),
+    VH:           +VH.toFixed(2)
+  };
+}
+
+function fmt2(ms) {
+  return ms ? new Date(ms).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : '';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPORTAR — Formato exacto nómina Quick Line Transportes S.A.S
+// ═══════════════════════════════════════════════════════════════════
+
+// Estilo base Quick Line para celdas
+const QL = {
+  azul:    {fgColor:{rgb:'1A35CC'}},
+  azulOsc: {fgColor:{rgb:'0F1F8A'}},
+  blanco:  {fgColor:{rgb:'FFFFFF'}},
+  verde:   {fgColor:{rgb:'D6F5E3'}},
+  rojo:    {fgColor:{rgb:'FDECEA'}},
+  naranja: {fgColor:{rgb:'FFE0B2'}},
+  lila:    {fgColor:{rgb:'EEF0FB'}},
+  noche:   {fgColor:{rgb:'E8EAF6'}},
+  morado:  {fgColor:{rgb:'F3E5F5'}},
+  amarillo:{fgColor:{rgb:'FFF8DC'}},
+  plata:   {fgColor:{rgb:'C8D0DC'}},
+  alterno: {fgColor:{rgb:'E8ECFB'}},
+};
+
+function estiloQL(fill, bold=false, color='111111', sz=9, align='center') {
+  return {
+    font: {name:'Arial', sz, bold, color:{rgb:color}},
+    fill: {patternType:'solid', ...fill},
+    alignment: {horizontal:align, vertical:'center', wrapText:true},
+    border: {
+      top:{style:'thin',color:{rgb:'B0C4DE'}},
+      bottom:{style:'thin',color:{rgb:'B0C4DE'}},
+      left:{style:'thin',color:{rgb:'B0C4DE'}},
+      right:{style:'thin',color:{rgb:'B0C4DE'}}
+    }
+  };
+}
+
+function setCellStyle(ws, addr, style) {
+  if (!ws[addr]) ws[addr] = {v:'', t:'s'};
+  ws[addr].s = style;
+}
+
+function setCellVal(ws, addr, val, style, type) {
+  const t = type || (typeof val === 'number' ? 'n' : 's');
+  ws[addr] = {v: val, t, s: style};
+}
+
+// Determinar quincena del registro
+function getQuincena(fechaStr) {
+  const dia = parseInt(fechaStr.split('/')[0] || fechaStr.split('-')[2]);
+  return dia <= 15 ? 1 : 2;
+}
+
+function exportarExcelNomina() {
+  const hoyStr = hoy();
+  const regsCompletos = registros.filter(r => r.entrada && r.salida);
+
+  if (!regsCompletos.length) {
+    toast('No hay registros completos para exportar', 'err');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Preparar datos calculados ─────────────────────────────────────────
+  const datosCalc = regsCompletos.map((r, i) => {
+    const trab    = trabajadores.find(t => t.nombre === r.nombre);
+    const salario = trab ? (parseInt(trab.salario) || 1750904) : 1750904;
+    const oficio  = trab ? (trab.cargo || trab.oficio || '') : (r.cargo || '');
+    const cedula  = trab ? (trab.cedula || '') : '';
+    const calc    = calcularHoras(r.entrada, r.salida, salario);
+
+    const estado = calc.netas >= NOMINA.JORNADA ? 'COMPLETA' : 'INCOMPLETA';
+    return {
+      ...calc,
+      num: i+1, cedula, nombre: r.nombre, oficio, salario,
+      fecha: r.fecha || hoyStr,
+      entrada: fmt2(r.entrada), salida: fmt2(r.salida),
+    };
+  });
+
+  // ══════════════════════════════════════
+  // HOJA 1 — REGISTRO DIARIO
+  // ══════════════════════════════════════
+  const HDR1 = [
+    'N°','CEDULA','NOMBRE','OFICIO','SALARIO BASE',
+    'ENTRADA','SALIDA',
+    'H.BRUTAS','ALIMENT.(-1h)','H.NETAS',
+    'H.DIUR.ORD','H.DIUR.REC(+25%)','H.NOCT(+35%)',
+    'VAL.DIUR.ORD','VAL.DIUR.REC','VAL.NOCT',
+    'TOTAL DEVENGADO'
+  ];
+
+  const filas1 = datosCalc.map(d => [
+    d.num, d.cedula, d.nombre, d.oficio, d.salario,
+    d.entrada, d.salida,
+    d.brutas, d.alim, d.netas,
+    d.h_diur_ord, d.h_diur_rec, d.h_noct,
+    d.val_diur_ord, d.val_diur_rec, d.val_noct,
+    d.total
+  ]);
+
+  // Fila totales
+  const sumar = (campo) => datosCalc.reduce((s,d) => s + (d[campo]||0), 0);
+  const totFila = [
+    '','','TOTALES','','','','',
+    +sumar('brutas').toFixed(2), +sumar('alim').toFixed(2), +sumar('netas').toFixed(2),
+    +sumar('h_diur_ord').toFixed(2), +sumar('h_diur_rec').toFixed(2), +sumar('h_noct').toFixed(2),
+    Math.round(sumar('val_diur_ord')), Math.round(sumar('val_diur_rec')), Math.round(sumar('val_noct')),
+    Math.round(sumar('total'))
+  ];
+
+  // Info cabecera
+  const cab = [
+    ['QUICK LINE TRANSPORTES S.A.S — REGISTRO DIARIO DE ASISTENCIA'],
+    [`Fecha: ${hoyStr} | Trabajadores: ${datosCalc.length} | Diurna: 6am-7pm | Noct: 7pm-6am (+35%) | Extra D >7.6h (+25%) | Extra N >7.6h (+75%)`],
+    [],
+    HDR1,
+    ...filas1,
+    totFila
+  ];
+
+  const ws1 = XLSX.utils.aoa_to_sheet(cab);
+  ws1['!cols'] = [
+    {wch:4},{wch:13},{wch:28},{wch:18},{wch:13},
+    {wch:9},{wch:9},
+    {wch:9},{wch:12},{wch:9},
+    {wch:12},{wch:14},{wch:12},
+    {wch:13},{wch:13},{wch:13},
+    {wch:16},{wch:13}
+  ];
+  XLSX.utils.book_append_sheet(wb, ws1, 'REGISTRO DIARIO');
+
+  // ══════════════════════════════════════
+  // HOJA 2 — EMPLEADOS
+  // ══════════════════════════════════════
+  const HDR2 = ['N°','CEDULA','NOMBRE COMPLETO','OFICIO','SALARIO BASE','ESTADO'];
+  const filas2 = trabajadores.map((t,i) => [
+    i+1,
+    t.cedula || '',
+    t.nombre || '',
+    t.cargo || t.oficio || '',
+    parseInt(t.salario) || 1750904,
+    0,
+    'ACTIVO'
+  ]);
+  const ws2 = XLSX.utils.aoa_to_sheet([
+    ['QUICK LINE TRANSPORTES S.A.S — LISTADO DE EMPLEADOS'],
+    [`Total trabajadores: ${trabajadores.length}`],
+    [],
+    HDR2,
+    ...filas2
+  ]);
+  ws2['!cols'] = [{wch:5},{wch:16},{wch:36},{wch:22},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'EMPLEADOS');
+
+  // ══════════════════════════════════════
+  // HOJA 3 — RESUMEN DEL DÍA
+  // ══════════════════════════════════════
+  const fmt$ = n => '$' + Math.round(n).toLocaleString('es-CO');
+  const fmtH = n => parseFloat(n.toFixed(2)) + ' hrs';
+  const ws3 = XLSX.utils.aoa_to_sheet([
+    ['QUICK LINE TRANSPORTES S.A.S — RESUMEN DE ASISTENCIA'],
+    [`Fecha: ${hoyStr} | Trabajadores con registro: ${datosCalc.length}`],
+    [],
+    ['CONCEPTO', 'VALOR'],
+    ['H. diurnas ordinarias (base)',       fmtH(sumar('h_diur_ord'))],
+    ['H. diurnas con recargo (+25%)',      fmtH(sumar('h_diur_rec'))],
+    ['H. nocturnas (+35%)',                fmtH(sumar('h_noct'))],
+    ['H. netas totales trabajadas',        fmtH(sumar('netas'))],
+    [],
+    ['Valor diurno ordinario (base)', fmt$(sumar('val_diur_ord'))],
+    ['Valor diurno con recargo +25%', fmt$(sumar('val_diur_rec'))],
+    ['Valor nocturno +35%',           fmt$(sumar('val_noct'))],
+    ['TOTAL DEVENGADO DEL DIA',       fmt$(sumar('total'))],
+    [],
+    ['Jornada completa',   datosCalc.filter(d=>d.netas>=NOMINA.JORNADA).length + ' trabajadores'],
+    ['Jornada incompleta', datosCalc.filter(d=>d.netas<NOMINA.JORNADA).length + ' trabajadores'],
+  ]);
+  ws3['!cols'] = [{wch:38},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'RESUMEN DIA');
+
+  // ── Descargar sin estilos (evita error Excel) ─────────────────────────
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `QuickLine_Nomina_${fecha}.xlsx`);
+  toast('Excel descargado correctamente — 3 hojas', 'ok');
+}
+
+
+// ── Ojito: mostrar u ocultar lo que se escribe en los campos de clave y PIN ──
+(function(){
+  const ABIERTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const CERRADO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  function ponerOjo(inp){
+    if(inp.dataset.ojo) return;
+    inp.dataset.ojo = '1';
+    const w = document.createElement('div'); w.className = 'ojo-wrap';
+    inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'ojo-btn'; b.innerHTML = ABIERTO;
+    b.setAttribute('aria-label','Mostrar lo escrito'); b.title = 'Mostrar lo escrito';
+    b.addEventListener('mousedown', e=>e.preventDefault());   // no quitar el foco del campo
+    b.addEventListener('click', ()=>{
+      const ver = inp.type === 'password';
+      inp.type = ver ? 'text' : 'password';
+      b.innerHTML = ver ? CERRADO : ABIERTO;
+      b.setAttribute('aria-label', ver ? 'Ocultar lo escrito' : 'Mostrar lo escrito'); b.title = b.getAttribute('aria-label');
+    });
+    w.appendChild(b);
+  }
+  // Al salir de la pantalla o cerrar sesión, los campos vuelven a ocultarse
+  window.ocultarClaves = () => document.querySelectorAll('.ojo-wrap input').forEach(i=>{
+    i.type='password'; const b=i.parentNode.querySelector('.ojo-btn'); if(b) b.innerHTML = ABIERTO; });
+  const iniciar = () => document.querySelectorAll('input[type="password"]').forEach(ponerOjo);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
+})();
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  ENTURNESE + TABLERO DE SOLICITUDES  (agregado nov. 2026)
+//  Colecciones nuevas en Firestore: terceros, turnos, solicitudes
+//  No toca trabajadores, registros ni la nómina.
+// ═══════════════════════════════════════════════════════════════════
+
+const SEDES = ['Itagüí','La Estrella','Copacabana','Marinilla','Rionegro','Medellín','Armenia','Cerritos (Pereira)'];
+const TIPOS_VEH = ['NKR / NHR','Turbo','Sencillo 2 ejes','Doble troque','Mula','Tractocamión','Carry o van'];
+const ESTADOS = [
+  {id:'recibida',   nombre:'Recibida',          color:'var(--amber)'},
+  {id:'systram',    nombre:'En Systram',        color:'var(--blue)'},
+  {id:'asignado',   nombre:'Vehículo asignado', color:'#8FB4F0'},
+  {id:'confirmada', nombre:'Confirmada',        color:'var(--green)'},
+  {id:'despachada', nombre:'Despachada',        color:'#5FD3A6'},
+  {id:'perdida',    nombre:'Perdida',           color:'var(--red)'}
+];
+const MOTIVOS_PERDIDA = ['Sin vehículo disponible','Precio','El cliente canceló','Otro'];
+const WHATSAPP_SEGURIDAD = '573243418287';   // seguridad recibe los documentos de los conductores
+
+let solMap = {};          // id -> solicitud
+let turnos = [];          // turnos de hoy
+let tercerosCache = {};   // id del tercero -> tercero
+let privMap = {};         // id del turno -> datos privados (tercero, nombre, celular, ubicación)
+let miDueno = null;       // marca con la que el conductor reconoce su turno
+let opsIniciado = false, condIniciado = false;
+let miTercero = null;     // conductor que inició sesión
+let solAbierta = null;    // id de la solicitud abierta en el detalle
+let lecturaPendiente = [];// solicitudes leídas del mensaje, sin crear
+
+// ── utilidades ─────────────────────────────────────────────────────
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad2 = n => String(n).padStart(2,'0');
+function hoyISO(d=new Date()){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function mesISO(d=new Date()){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; }
+const normTxt = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+const normPlaca = s => String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+const verPlaca = p => /^[A-Z]{3}\d{3}$/.test(p) ? p.slice(0,3)+' '+p.slice(3) : p;
+function dur(ms){
+  if(ms==null || ms<0) return '—';
+  const m = Math.round(ms/60000);
+  if(m < 60) return `${m} min`;
+  const h = Math.floor(m/60), r = m%60;
+  if(h < 24) return r ? `${h} h ${r} min` : `${h} h`;
+  const d = Math.floor(h/24); return `${d} d ${h%24} h`;
+}
+const hora = ms => ms ? new Date(ms).toLocaleTimeString('es-CO',{hour:'numeric',minute:'2-digit'}) : '—';
+const fechaCorta = iso => iso ? iso.split('-').reverse().join('/') : '';
+const estadoDe = id => ESTADOS.find(e=>e.id===id) || ESTADOS[0];
+function fbx(){ return window.FB; }
+
+// ── hoja de vida: semáforo ─────────────────────────────────────────
+function evaluarDocs(t){
+  const items = [];
+  if(!t) return {ok:false, items:[{n:'Hoja de vida', ok:false, txt:'Sin registrar'}], faltas:['Sin hoja de vida']};
+  const h = hoyISO(), en15 = hoyISO(new Date(Date.now()+15*864e5));
+  const venc = (n, f) => {
+    if(!f) return {n, ok:false, txt:'Sin fecha registrada'};
+    if(f < h) return {n, ok:false, txt:'Vencido el '+fechaCorta(f)};
+    return {n, ok:true, pronto: f <= en15, txt:(f<=en15?'Vence pronto: ':'Vigente hasta ')+fechaCorta(f)};
+  };
+  items.push({n:'Hoja de vida', ok:!!t.hvAprobada, txt:t.hvAprobada?'Aprobada':'Pendiente de aprobación'});
+  items.push(venc('SOAT', t.soat));
+  items.push(venc('Tecnomecánica', t.tecno));
+  const mes = mesISO();
+  items.push({n:'Planilla ARL', ok: !!t.arlMes && t.arlMes >= mes,
+              txt: t.arlMes ? (t.arlMes>=mes ? 'Pagada '+t.arlMes : 'Última pagada '+t.arlMes) : 'Sin registrar'});
+  const faltas = items.filter(i=>!i.ok).map(i=>i.n+': '+i.txt.toLowerCase());
+  return {ok:!faltas.length, items, faltas};
+}
+const gpsHoy = tu => tu && tu.gpsVerificado && hoyISO(new Date(tu.gpsVerificado)) === hoyISO();
+
+// El documento del tercero se llama con un código hecho de placa + cédula:
+// solo quien conoce las dos puede abrirlo.
+async function terceroIdDe(placa, cedula){ return (await sha256('ql-ter|'+normPlaca(placa)+'|'+String(cedula).replace(/\D/g,''))).slice(0,24); }
+async function duenoDe(terceroId){ return (await sha256('ql-own|'+terceroId)).slice(0,24); }
+
+async function traerTercero(id, forzar=false){
+  if(!id) return null;
+  if(!forzar && id in tercerosCache) return tercerosCache[id];
+  const snap = await fbx().getDoc(fbx().doc(fbx().db,'terceros',id));
+  tercerosCache[id] = snap.exists() ? {id:snap.id, ...snap.data()} : null;
+  return tercerosCache[id];
+}
+const terceroDeTurno = t => tercerosCache[(privMap[t.id]||{}).terceroId];
+// Historial de cargues traído de Systram (cargMes: {'2026-01': 3, ...})
+function historialTxt(t){
+  if(!t || !t.cargMes) return '';
+  const n = Object.values(t.cargMes).reduce((a,b)=>a+b,0);
+  return n ? `${n.toLocaleString('es-CO')} ${n===1?'cargue':'cargues'} con Quick Line · último ${fechaCorta(t.ultimoCargue)}` : '';
+}
+const titulo = s => String(s||'').toLowerCase().replace(/\s+/g,' ').trim().replace(/(^|\s)(\p{L})/gu, (m,a,b)=>a+b.toUpperCase());
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONDUCTOR TERCERO — ENTURNARME
+// ═══════════════════════════════════════════════════════════════════
+function iniciarConductor(){
+  const s = document.getElementById('ent-sede');
+  if(s && !s.options.length) s.innerHTML = SEDES.map(x=>`<option>${esc(x)}</option>`).join('');
+  const tv = document.getElementById('ent-tipo');
+  if(tv && tv.options.length<=1) tv.innerHTML = '<option value="">Elija…</option>'+TIPOS_VEH.map(x=>`<option>${esc(x)}</option>`).join('');
+  try{
+    const g = JSON.parse(localStorage.getItem('ql-conductor')||'null');
+    if(g){ document.getElementById('ent-placa').value = g.placa||''; document.getElementById('ent-cedula').value = g.cedula||'';
+           if(g.sede) document.getElementById('ent-sede').value = g.sede; }
+  }catch(e){}
+  if(condIniciado) return;
+  condIniciado = true;
+  escucharTurnosHoy();
+}
+
+async function entIdentificar(){
+  const placa = normPlaca(document.getElementById('ent-placa').value);
+  const cedula = document.getElementById('ent-cedula').value.replace(/\D/g,'');
+  if(placa.length < 5){ toast('Escriba la placa completa','err'); return; }
+  if(cedula.length < 5){ toast('Escriba su cédula','err'); return; }
+  try{
+    const id = await terceroIdDe(placa, cedula);
+    const t = await traerTercero(id, true);
+    if(!t){
+      document.getElementById('ent-registro').style.display='block';
+      document.getElementById('ent-panel').style.display='none';
+      toast('Primera vez con esta placa y cédula: complete sus datos','info');
+      return;
+    }
+    miTercero = t; miDueno = await duenoDe(id);
+    try{ localStorage.setItem('ql-conductor', JSON.stringify({placa, cedula, sede:document.getElementById('ent-sede').value})); }catch(e){}
+    document.getElementById('ent-registro').style.display='none';
+    renderConductor();
+  }catch(e){ console.error(e); toast('Error consultando: '+e.message,'err'); }
+}
+
+async function entRegistrar(){
+  const placa = normPlaca(document.getElementById('ent-placa').value);
+  const cedula = document.getElementById('ent-cedula').value.replace(/\D/g,'');
+  const nombre = document.getElementById('ent-nombre').value.trim();
+  const celular = document.getElementById('ent-celular').value.replace(/\D/g,'');
+  const tipo = document.getElementById('ent-tipo').value;
+  if(placa.length < 5 || cedula.length < 5){ toast('Revise placa y cédula','err'); return; }
+  if(!nombre || celular.length<10 || !tipo){ toast('Complete nombre, celular y tipo de vehículo','err'); return; }
+  const t = {placa, cedula, nombre:titulo(nombre), celular, tipoVehiculo:tipo, hvAprobada:false, soat:'', tecno:'', arlMes:'', gpsProveedor:'',
+             pendienteRevision:true, origen:'app', creado:Date.now(), actualizado:Date.now()};
+  try{
+    const id = await terceroIdDe(placa, cedula);
+    await fbx().setDoc(fbx().doc(fbx().db,'terceros',id), t);
+    tercerosCache[id] = {id, ...t};
+    miTercero = tercerosCache[id]; miDueno = await duenoDe(id);
+    try{ localStorage.setItem('ql-conductor', JSON.stringify({placa, cedula})); }catch(e){}
+    document.getElementById('ent-registro').style.display='none';
+    toast('✅ Registro enviado. Envíe sus documentos a seguridad con el botón verde.','ok');
+    renderConductor();
+  }catch(e){ console.error(e); toast('Error guardando: '+e.message,'err'); }
+}
+
+function miTurno(){
+  if(!miTercero) return null;
+  return turnos.find(t => t.dueno===miDueno && (t.estado==='en_turno' || t.estado==='asignado')) || null;
+}
+function posicionEnTurno(tu){
+  return turnos.filter(t => t.sede===tu.sede && t.estado==='en_turno' && t.hora < tu.hora).length + 1;
+}
+
+function renderConductor(){
+  const panel = document.getElementById('ent-panel');
+  if(!miTercero){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  const ev = evaluarDocs(miTercero);
+  document.getElementById('ent-quien').innerHTML =
+    `<div style="font-size:22px;font-weight:800">${esc(verPlaca(miTercero.placa))}</div>
+     <div style="color:var(--muted);font-size:13px">${esc(miTercero.nombre)} · ${esc(miTercero.tipoVehiculo)}</div>`;
+  document.getElementById('ent-docs').innerHTML = ev.items.map(i=>`
+    <div class="chk-row"><span class="chk ${i.ok?(i.pronto?'warn':'ok'):'bad'}">${i.ok?'✓':'!'}</span>
+      <span style="flex:1">${esc(i.n)}</span><span style="font-size:12px;color:var(--muted)">${esc(i.txt)}</span></div>`).join('')
+    + (ev.ok ? '' : `<div class="nota-warn">Mientras falte algo, despachos no lo verá como disponible para cargar. Envíe los documentos a seguridad para que los revisen.</div>`)
+    + `<button class="btn ${ev.ok?'btn-outline':'btn-green'}" style="margin-top:12px" onclick="enviarDocumentos()">📎 Enviar documentos a seguridad</button>`;
+  const tu = miTurno();
+  const box = document.getElementById('ent-turno');
+  const btn = document.getElementById('ent-btn');
+  const sal = document.getElementById('ent-salir');
+  if(tu){
+    const asignado = tu.estado==='asignado';
+    box.style.display='block';
+    box.innerHTML = asignado
+      ? `<div class="turno-num" style="color:var(--green)">Asignado</div><div style="color:var(--muted)">Tiene un viaje asignado. Despachos se comunicará con usted.</div>`
+      : `<div style="font-size:12px;color:var(--muted)">Su turno en ${esc(tu.sede)}</div>
+         <div class="turno-num">N.º ${posicionEnTurno(tu)}</div>
+         <div style="font-size:12px;color:var(--muted)">En turno desde las ${hora(tu.hora)} · vale por hoy</div>`;
+    btn.style.display='none'; sal.style.display = asignado ? 'none' : 'flex';
+    document.getElementById('ent-sede-wrap').style.display='none';
+  } else {
+    box.style.display='none'; btn.style.display='flex'; sal.style.display='none';
+    document.getElementById('ent-sede-wrap').style.display='block';
+    btn.textContent = 'Enturnarme en '+document.getElementById('ent-sede').value;
+  }
+}
+
+// Abre WhatsApp de seguridad con el mensaje listo; el conductor solo adjunta las fotos
+function enviarDocumentos(){
+  if(!miTercero) return;
+  const ev = evaluarDocs(miTercero);
+  const msg = [
+    `Hola, soy ${miTercero.nombre}, conductor del vehículo ${verPlaca(miTercero.placa)} (${miTercero.tipoVehiculo}), CC ${miTercero.cedula}.`,
+    `Envío mis documentos para la hoja de vida en Quick Line.`,
+    ev.ok ? '' : `Pendiente según la aplicación:\n${ev.items.filter(i=>!i.ok).map(i=>'• '+i.n+': '+i.txt.toLowerCase()).join('\n')}`,
+    `(Adjunto las fotos a continuación)`
+  ].filter(Boolean).join('\n\n');
+  window.open(`https://wa.me/${WHATSAPP_SEGURIDAD}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+async function entEnturnar(){
+  if(!miTercero) return;
+  if(miTurno()){ toast('Ya está en turno hoy','info'); return; }
+  const sede = document.getElementById('ent-sede').value;
+  const btn = document.getElementById('ent-btn'); btn.disabled = true;
+  // ubicación del celular en el momento de enturnarse
+  const ubic = await new Promise(res=>{
+    if(!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude,precision:Math.round(p.coords.accuracy)}),
+      ()=>res(null), {enableHighAccuracy:true, timeout:8000});
+  });
+  if(!ubic){ btn.disabled=false; toast('Active la ubicación del celular para enturnarse','err'); return; }
+  try{
+    // Lo público del turno (lo ven los demás conductores para calcular su puesto)…
+    const nuevo = await fbx().addDoc(fbx().collection(fbx().db,'turnos'), {
+      placa:miTercero.placa, tipoVehiculo:miTercero.tipoVehiculo, sede, fecha:hoyISO(), hora:Date.now(),
+      estado:'en_turno', solicitudId:null, gpsVerificado:null, dueno:miDueno
+    });
+    // …y lo privado, que solo ve operaciones
+    await fbx().setDoc(fbx().doc(fbx().db,'turnos_priv',nuevo.id), {
+      terceroId:miTercero.id, nombre:miTercero.nombre, celular:miTercero.celular||'', ubic, fecha:hoyISO()
+    });
+    try{ const g=JSON.parse(localStorage.getItem('ql-conductor')||'{}'); g.sede=sede; localStorage.setItem('ql-conductor',JSON.stringify(g)); }catch(e){}
+    toast('✅ Quedó en turno en '+sede,'ok');
+  }catch(e){ console.error(e); toast('Error: '+e.message,'err'); }
+  btn.disabled=false;
+}
+
+async function entSalir(){
+  const tu = miTurno(); if(!tu) return;
+  if(!confirm('¿Salir del turno? Si vuelve a enturnarse queda de último.')) return;
+  try{ await fbx().updateDoc(fbx().doc(fbx().db,'turnos',tu.id), {estado:'retirado', retirado:Date.now()}); toast('Salió del turno','info'); }
+  catch(e){ toast('Error: '+e.message,'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LISTENERS
+// ═══════════════════════════════════════════════════════════════════
+let turnosUnsub = null;
+function escucharTurnosHoy(){
+  if(turnosUnsub) return;
+  const q = fbx().query(fbx().collection(fbx().db,'turnos'), fbx().where('fecha','==',hoyISO()));
+  turnosUnsub = fbx().onSnapshot(q, async snap=>{
+    turnos = snap.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>a.hora-b.hora);
+    if(rolActual==='conductor'){
+      // refresca la hoja de vida por si despachos la actualizó
+      if(miTercero) await traerTercero(miTercero.id, true).then(t=>{ if(t) miTercero=t; }).catch(()=>{});
+      renderConductor(); return;
+    }
+    await refrescarOps();
+  }, err=>console.error('turnos', err));
+  if(rolActual==='admin' || rolActual==='operaciones'){
+    const qp = fbx().query(fbx().collection(fbx().db,'turnos_priv'), fbx().where('fecha','==',hoyISO()));
+    fbx().onSnapshot(qp, async snap=>{
+      privMap = Object.fromEntries(snap.docs.map(d=>[d.id, d.data()]));
+      await refrescarOps();
+    }, err=>console.error('turnos_priv', err));
+  }
+}
+async function refrescarOps(){
+  const ids = [...new Set(Object.values(privMap).map(p=>p.terceroId).filter(Boolean))];
+  await Promise.all(ids.map(id=>traerTercero(id).catch(()=>null)));
+  renderTurno();
+  if(solAbierta) renderDetalle();
+}
+
+function iniciarOperacion(){
+  if(opsIniciado) return;
+  opsIniciado = true;
+  const fs = document.getElementById('tur-sede');
+  fs.innerHTML = '<option value="">Todas las sedes</option>'+SEDES.map(x=>`<option>${esc(x)}</option>`).join('');
+  escucharTurnosHoy();
+  // Dos consultas: las del mes y las abiertas (aunque sean de meses anteriores).
+  // Cada una lleva su propio mapa; el tablero usa la unión de las dos.
+  const delMes = {}, abiertas = {};
+  const recibir = mapa => snap => {
+    snap.docChanges().forEach(ch=>{
+      if(ch.type==='removed') delete mapa[ch.doc.id];
+      else mapa[ch.doc.id] = {id:ch.doc.id, ...ch.doc.data()};
+    });
+    solMap = {...delMes, ...abiertas};
+    renderTablero();
+    if(solAbierta) renderDetalle();
+  };
+  const inicioMes = mesISO()+'-01';
+  fbx().onSnapshot(fbx().query(fbx().collection(fbx().db,'solicitudes'), fbx().where('fecha','>=',inicioMes)), recibir(delMes), e=>console.error('sol mes',e));
+  fbx().onSnapshot(fbx().query(fbx().collection(fbx().db,'solicitudes'), fbx().where('abierta','==',true)), recibir(abiertas), e=>console.error('sol abiertas',e));
+  cargarPendientesHV();
+  setInterval(()=>{ renderTablero(); }, 60000); // refresca los tiempos cada minuto
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TURNO DE VEHÍCULOS (operaciones)
+// ═══════════════════════════════════════════════════════════════════
+function renderTurno(){
+  const el = document.getElementById('tur-lista'); if(!el) return;
+  const sede = document.getElementById('tur-sede').value;
+  const lista = turnos.filter(t => (t.estado==='en_turno'||t.estado==='asignado') && (!sede || t.sede===sede));
+  const enTurno = lista.filter(t=>t.estado==='en_turno');
+  const listos = enTurno.filter(t=>evaluarDocs(terceroDeTurno(t)).ok && gpsHoy(t));
+  const conPend = enTurno.filter(t=>!evaluarDocs(terceroDeTurno(t)).ok);
+  document.getElementById('tur-kpis').innerHTML = [
+    ['En turno', enTurno.length, ''],
+    ['Listos para cargar', listos.length, 'Documentos y GPS al día'],
+    ['Con pendientes', conPend.length, 'Documentos por actualizar'],
+    ['Asignados hoy', turnos.filter(t=>t.estado==='asignado').length, '']
+  ].map(([l,v,s])=>`<div class="kpi"><div class="kpi-l">${l}</div><div class="kpi-v">${v}</div><div class="kpi-s">${s}</div></div>`).join('');
+  if(!lista.length){ el.innerHTML = `<div class="empty-state"><div class="icon">🚚</div><p>Nadie en turno hoy${sede?' en '+esc(sede):''}.</p></div>`; return; }
+  const porSede = {};
+  lista.forEach(t=>{ (porSede[t.sede] = porSede[t.sede]||[]).push(t); });
+  el.innerHTML = Object.entries(porSede).map(([s, ts])=>{
+    let n = 0;
+    return `<div class="card-title" style="margin:14px 0 8px">${esc(s)} · ${ts.filter(t=>t.estado==='en_turno').length} en turno</div>` + ts.map(t=>{
+      const pv = privMap[t.id] || {};
+      const ev = evaluarDocs(terceroDeTurno(t));
+      const num = t.estado==='en_turno' ? ++n : '✓';
+      const gps = gpsHoy(t);
+      const mapa = pv.ubic ? `<a href="https://maps.google.com/?q=${pv.ubic.lat},${pv.ubic.lng}" target="_blank" rel="noopener" style="color:var(--blue)">ver ubicación</a>` : 'sin ubicación';
+      return `<div class="tur-item ${t.estado==='asignado'?'asig':''}">
+        <div class="tur-n">${num}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800">${esc(verPlaca(t.placa))} <span style="font-weight:400;color:var(--muted);font-size:12px">${esc(t.tipoVehiculo)}</span></div>
+          <div style="font-size:12px;color:var(--muted)">${esc(pv.nombre||'…')} · ${pv.celular?esc(pv.celular)+' · ':''}desde ${hora(t.hora)} (${dur(Date.now()-t.hora)}) · ${mapa}</div>
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+            <span class="badge ${ev.ok?'badge-green':'badge-red'}">${ev.ok?'✓ Documentos':'✗ '+esc(ev.faltas[0])+(ev.faltas.length>1?' (+'+(ev.faltas.length-1)+')':'')}</span>
+            <span class="badge ${gps?'badge-green':'badge-amber'}">${gps?'✓ GPS verificado '+hora(t.gpsVerificado):'GPS por verificar'}</span>
+            ${historialTxt(terceroDeTurno(t))?`<span class="badge badge-blue">🕘 ${esc(historialTxt(terceroDeTurno(t)))}</span>`:`<span class="badge badge-amber">Sin historial en Systram</span>`}
+            ${t.estado==='asignado'?`<span class="badge badge-blue">Asignado${solMap[t.solicitudId]?' · '+esc(solMap[t.solicitudId].cliente):''}</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${t.estado==='en_turno'?`<button class="btn btn-outline btn-sm" onclick="verificarGPS('${t.id}')">${gps?'Quitar GPS':'GPS ✓'}</button>`:''}
+          <button class="btn btn-outline btn-sm" onclick="abrirHVId('${esc(pv.terceroId||'')}')">Hoja de vida</button>
+        </div>
+      </div>`;
+    }).join('');
+  }).join('');
+}
+
+async function verificarGPS(id){
+  const t = turnos.find(x=>x.id===id); if(!t) return;
+  try{ await fbx().updateDoc(fbx().doc(fbx().db,'turnos',id), {gpsVerificado: gpsHoy(t) ? null : Date.now()}); }
+  catch(e){ toast('Error: '+e.message,'err'); }
+}
+
+// ── editor de hoja de vida ─────────────────────────────────────────
+// Buscar por placa (puede haber más de un conductor con la misma placa)
+async function abrirHV(){
+  const placa = normPlaca(document.getElementById('hv-buscar').value);
+  const box = document.getElementById('hv-editor');
+  if(!placa){ toast('Escriba una placa','err'); return; }
+  try{
+    const snap = await fbx().getDocs(fbx().query(fbx().collection(fbx().db,'terceros'), fbx().where('placa','==',placa)));
+    const ts = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    ts.forEach(t=>{ tercerosCache[t.id]=t; });
+    if(!ts.length){ box.innerHTML = `<div class="nota-warn">No hay un tercero registrado con la placa ${esc(verPlaca(placa))}. El conductor se registra desde la opción «Conductor tercero».</div>`; return; }
+    if(ts.length===1) return abrirHVId(ts[0].id);
+    box.innerHTML = `<div class="nota-warn" style="margin-bottom:10px">Hay ${ts.length} conductores registrados con esta placa. Elija uno:</div>` +
+      ts.map(t=>`<button class="pill" onclick="abrirHVId('${t.id}')">${esc(t.nombre)} · CC ${esc(t.cedula)}</button>`).join(' ');
+  }catch(e){ toast('Error: '+e.message,'err'); }
+}
+
+async function abrirHVId(id){
+  if(!id){ toast('No se encontró la hoja de vida de este turno','err'); return; }
+  const t = await traerTercero(id, true);
+  const box = document.getElementById('hv-editor');
+  if(!t){ box.innerHTML = '<div class="nota-warn">No se encontró la hoja de vida.</div>'; return; }
+  document.getElementById('hv-buscar').value = verPlaca(t.placa);
+  const ev = evaluarDocs(t);
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div><div style="font-weight:800;font-size:18px">${esc(verPlaca(t.placa))}</div>
+      <div style="font-size:12px;color:var(--muted)">CC ${esc(t.cedula)} · registrado ${t.creado?new Date(t.creado).toLocaleDateString('es-CO'):''}${t.origen==='systram'?' desde Systram':''}</div>
+      ${historialTxt(t)?`<div style="font-size:12px;color:var(--blue);margin-top:2px">🕘 ${esc(historialTxt(t))}</div>`:''}
+      ${t.propietario?`<div style="font-size:12px;color:var(--muted)">Propietario: ${esc(t.propietario)}${t.docPropietario?' · '+esc(t.docPropietario):''}</div>`:''}</div>
+      <span class="badge ${ev.ok?'badge-green':'badge-red'}">${ev.ok?'Listo para cargar':'Con pendientes'}</span>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Conductor</label><input id="hv-nombre" value="${esc(t.nombre)}"></div>
+      <div class="field"><label>Celular</label><input id="hv-celular" type="tel" value="${esc(t.celular||'')}"></div>
+      <div class="field"><label>Tipo de vehículo</label><select id="hv-tipo">${TIPOS_VEH.map(x=>`<option ${x===t.tipoVehiculo?'selected':''}>${esc(x)}</option>`).join('')}</select></div>
+      <div class="field"><label>Proveedor GPS</label><input id="hv-gps" value="${esc(t.gpsProveedor||'')}" placeholder="Nombre del proveedor"></div>
+      <div class="field"><label>SOAT vigente hasta</label><input id="hv-soat" type="date" value="${esc(t.soat||'')}"></div>
+      <div class="field"><label>Tecnomecánica vigente hasta</label><input id="hv-tecno" type="date" value="${esc(t.tecno||'')}"></div>
+      <div class="field"><label>Planilla ARL pagada (mes)</label><input id="hv-arl" type="month" value="${esc(t.arlMes||'')}"></div>
+    </div>
+    <label class="chk-line"><input type="checkbox" id="hv-aprob" ${t.hvAprobada?'checked':''}> Hoja de vida aprobada por seguridad (documentos completos y validados)</label>
+    <button class="btn btn-green" style="margin-top:12px" onclick="guardarHV('${t.id}')">Guardar hoja de vida</button>`;
+  if(document.getElementById('tab-turno').classList.contains('active')) box.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+async function guardarHV(id){
+  const v = x => document.getElementById(x).value.trim();
+  const datos = {nombre:v('hv-nombre'), celular:v('hv-celular').replace(/\D/g,''),
+    tipoVehiculo:v('hv-tipo'), soat:v('hv-soat'), tecno:v('hv-tecno'), arlMes:v('hv-arl'), gpsProveedor:v('hv-gps'),
+    hvAprobada:document.getElementById('hv-aprob').checked, actualizado:Date.now()};
+  datos.pendienteRevision = !datos.hvAprobada;
+  try{
+    await fbx().updateDoc(fbx().doc(fbx().db,'terceros',id), datos);
+    tercerosCache[id] = {...(tercerosCache[id]||{}), ...datos};
+    toast('✅ Hoja de vida actualizada','ok');
+    abrirHVId(id); renderTurno(); cargarPendientesHV();
+  }catch(e){ toast('Error: '+e.message,'err'); }
+}
+
+async function cargarPendientesHV(){
+  const el = document.getElementById('hv-pendientes'); if(!el) return;
+  try{
+    const snap = await fbx().getDocs(fbx().query(fbx().collection(fbx().db,'terceros'), fbx().where('pendienteRevision','==',true)));
+    const ts = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    ts.forEach(t=>{ tercerosCache[t.id]=t; });
+    el.innerHTML = ts.length ? ts.map(t=>`<button class="pill" onclick="abrirHVId('${t.id}')">${esc(verPlaca(t.placa))} · ${esc(t.nombre)}</button>`).join('')
+                             : '<span style="color:var(--muted);font-size:13px">No hay hojas de vida pendientes.</span>';
+  }catch(e){ el.textContent = 'Error: '+e.message; }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  CARGAR BASE DE SYSTRAM (informe de movimientos IGMT)
+// ═══════════════════════════════════════════════════════════════════
+const CLASES_SYSTRAM = [
+  [/TURBO/, 'Turbo'], [/NKR|NHR/, 'NKR / NHR'], [/MULA/, 'Mula'], [/TRACTO/, 'Tractocamión'],
+  [/DOBLE\s*TROQUE/, 'Doble troque'], [/SENCILLO/, 'Sencillo 2 ejes'], [/CARRY|VAN/, 'Carry o van']
+];
+const claseQL = c => { const u = normTxt(c).toUpperCase(); const m = CLASES_SYSTRAM.find(([r])=>r.test(u)); return m ? m[1] : titulo(c); };
+const soloDigitos = v => typeof v === 'number' ? String(Math.round(v)) : String(v??'').replace(/\D/g,'');
+function celularDe(txt){ const m = String(txt||'').replace(/[^\d ]/g,' ').match(/3\d{9}/); return m ? m[0] : ''; }
+function fechaISOde(v){
+  if(v instanceof Date) return hoyISO(v);
+  if(typeof v === 'number'){ const d = new Date(Math.round((v-25569)*864e5)); return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())}`; }
+  const s = String(v||'').trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m) return `${m[3]}-${pad2(m[2])}-${pad2(m[1])}`;
+  return '';
+}
+
+// Lee el archivo (Systram exporta HTML con extensión .xls; también sirve un .xlsx real)
+async function leerFilasSystram(file){
+  const buf = await file.arrayBuffer();
+  const txt = new TextDecoder('utf-8').decode(buf.slice(0, 2000)).toLowerCase();
+  if(txt.includes('<table') || txt.includes('<html')){
+    const html = new TextDecoder(/charset=["']?iso-8859-1|windows-1252/.test(txt) ? 'windows-1252' : 'utf-8').decode(buf);
+    const docu = new DOMParser().parseFromString(html, 'text/html');
+    const tabla = docu.getElementById('gv1') || [...docu.querySelectorAll('table')].find(t=>/Documento Conductor/i.test(t.textContent));
+    if(!tabla) throw new Error('No encontré la tabla de movimientos en el archivo');
+    const trs = [...tabla.querySelectorAll('tr')];
+    const enc = [...trs[0].children].map(c=>c.textContent.trim());
+    return trs.slice(1).map(tr=>{ const c=[...tr.children]; const o={}; enc.forEach((h,i)=>o[h]=(c[i]?c[i].textContent:'').trim()); return o; });
+  }
+  const wb = XLSX.read(buf, {type:'array', cellDates:true});
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+}
+
+async function importarSystram(){
+  const f = document.getElementById('imp-archivo').files[0];
+  const est = document.getElementById('imp-estado'), btn = document.getElementById('imp-btn');
+  if(!f){ toast('Elija el archivo de movimientos de Systram','err'); return; }
+  btn.disabled = true; est.style.color='var(--muted)'; est.textContent = 'Leyendo el archivo…';
+  try{
+    const filas = await leerFilasSystram(f);
+    const col = (o, ...nombres) => { for(const n of nombres){ const k = Object.keys(o).find(k=>normTxt(k)===normTxt(n)); if(k!==undefined) return o[k]; } return ''; };
+    if(!filas.length || !Object.keys(filas[0]).some(k=>/vehiculo/i.test(normTxt(k))))
+      throw new Error('El archivo no parece el informe de movimientos (no tiene la columna Vehiculo)');
+    const grupos = {}; let anul=0, propios=0, incompletos=0;
+    for(const r of filas){
+      if(/anulad/i.test(col(r,'Estado Movimiento'))){ anul++; continue; }
+      if(/propio/i.test(col(r,'Informacion Vehiculo Propio'))){ propios++; continue; }
+      const placa = normPlaca(col(r,'Vehiculo')), ced = soloDigitos(col(r,'Documento Conductor'));
+      const fecha = fechaISOde(col(r,'Fecha Movimiento'));
+      if(placa.length<5 || ced.length<5 || !fecha){ incompletos++; continue; }
+      const k = placa+'|'+ced;
+      const g = grupos[k] = grupos[k] || {placa, cedula:ced, nombre:'', celular:'', clase:'', propietario:'', docProp:'', dias:new Set(), ultimo:''};
+      g.nombre = g.nombre || titulo(col(r,'Conductor'));
+      g.celular = g.celular || celularDe(col(r,'Telefonos Conductor'));
+      g.clase = g.clase || claseQL(col(r,'Clase de Vehiculo'));
+      g.propietario = g.propietario || titulo(col(r,'Nombre Prestador Servicio'));
+      g.docProp = g.docProp || soloDigitos(col(r,'Documento Prestador Servicio'));
+      g.dias.add(fecha); if(fecha > g.ultimo) g.ultimo = fecha;
+    }
+    const lista = Object.values(grupos);
+    if(!lista.length) throw new Error('No encontré conductores terceros en el archivo');
+    est.textContent = `Encontré ${lista.length.toLocaleString('es-CO')} conductores terceros. Comparando con la base…`;
+    // Lo que ya existe (una sola lectura de la colección)
+    const snap = await fbx().getDocs(fbx().collection(fbx().db,'terceros'));
+    const existentes = Object.fromEntries(snap.docs.map(d=>[d.id, d.data()]));
+    let nuevos=0, actualizados=0, lote = fbx().writeBatch(fbx().db), enLote=0, hechos=0;
+    const ahora = Date.now();
+    for(const g of lista){
+      const id = await terceroIdDe(g.placa, g.cedula);
+      const cargMes = {};
+      g.dias.forEach(d=>{ const m=d.slice(0,7); cargMes[m]=(cargMes[m]||0)+1; });
+      const ref = fbx().doc(fbx().db,'terceros',id);
+      const ex = existentes[id];
+      if(!ex){
+        lote.set(ref, {placa:g.placa, cedula:g.cedula, nombre:g.nombre, celular:g.celular, tipoVehiculo:g.clase,
+          hvAprobada:false, soat:'', tecno:'', arlMes:'', gpsProveedor:'', pendienteRevision:false, origen:'systram',
+          propietario:g.propietario, docPropietario:g.docProp, cargMes, ultimoCargue:g.ultimo, creado:ahora, actualizado:ahora});
+        nuevos++;
+      } else {
+        // No toca aprobación, fechas ni datos que operaciones ya corrigió
+        const cambios = {cargMes:{...(ex.cargMes||{}), ...cargMes}, ultimoCargue: (ex.ultimoCargue||'') > g.ultimo ? ex.ultimoCargue : g.ultimo, actualizado:ahora};
+        if(!ex.celular && g.celular) cambios.celular = g.celular;
+        if(!ex.propietario && g.propietario){ cambios.propietario = g.propietario; cambios.docPropietario = g.docProp; }
+        if(!ex.tipoVehiculo && g.clase) cambios.tipoVehiculo = g.clase;
+        lote.set(ref, cambios, {merge:true});
+        actualizados++;
+      }
+      enLote++; hechos++;
+      if(enLote === 400){ await lote.commit(); lote = fbx().writeBatch(fbx().db); enLote = 0;
+        est.textContent = `Guardando… ${hechos.toLocaleString('es-CO')} de ${lista.length.toLocaleString('es-CO')}`; }
+    }
+    if(enLote) await lote.commit();
+    // refrescar lo que está en pantalla
+    Object.keys(tercerosCache).forEach(k=>delete tercerosCache[k]);
+    await refrescarOps();
+    est.style.color='var(--green)';
+    est.innerHTML = `✅ Base cargada: <b>${nuevos.toLocaleString('es-CO')}</b> conductores nuevos y <b>${actualizados.toLocaleString('es-CO')}</b> actualizados.`
+      + `<br><span style="color:var(--muted)">Se omitieron ${anul.toLocaleString('es-CO')} movimientos anulados, ${propios.toLocaleString('es-CO')} de vehículos propios`
+      + (incompletos?` y ${incompletos.toLocaleString('es-CO')} sin placa, cédula o fecha`:'') + '.</span>';
+    toast('✅ Base de Systram cargada','ok');
+  }catch(e){
+    console.error(e); est.style.color='var(--red)'; est.textContent = '❌ '+e.message;
+  }
+  btn.disabled = false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LEER EL MENSAJE DEL FORMULARIO
+// ═══════════════════════════════════════════════════════════════════
+function leerMensaje(texto){
+  const lineas = String(texto||'').replace(/\r/g,'').split('\n').map(l=>l.replace(/[*_]/g,'').replace(/ | /g,' ').trimEnd());
+  const campo = (l, k) => { const m = l.match(new RegExp('^\\s*'+k+'\\s*:\\s*(.*)$','i')); return m ? m[1].trim() : null; };
+  const g = {ref:'', recibida:null, cliente:'', nit:'', contacto:'', celular:'', adicionales:'', observaciones:'', asesor:''};
+  const viajes = []; let v = null, enPedidos = false, pedidoNuevo = false;
+  for(const l of lineas){
+    let x;
+    if((x=campo(l,'Ref\\.?')) !== null && !v){ g.ref = x; continue; }
+    if((x=campo(l,'Fecha de la solicitud')) !== null){
+      const m = x.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\D+(\d{1,2}):(\d{2})\s*([ap])?/i);
+      if(m){ let h=+m[4]; if(m[6]){ const pm=m[6].toLowerCase()==='p'; if(pm&&h<12) h+=12; if(!pm&&h===12) h=0; }
+             g.recibida = new Date(+m[3], +m[2]-1, +m[1], h, +m[5]).getTime(); }
+      continue;
+    }
+    if((x=campo(l,'Remitente')) !== null){ const p=x.split('·'); g.cliente=p[0].trim(); g.nit=(p[1]||'').replace(/NIT/i,'').trim(); continue; }
+    if((x=campo(l,'Solicita')) !== null){ const p=x.split('·').map(s=>s.trim()); g.contacto=p[0]||''; g.celular=(p[1]||'').replace(/\D/g,''); continue; }
+    let m = l.match(/VIAJE\s+(\d+)\s*\(([^)]+)\)/i);
+    if(m){ v = {n:+m[1], ref:m[2].trim(), cantidad:1, vehiculo:'', origen:'', dirCargue:'', fechaCargue:'', horaCargue:'', producto:'', destinos:[], pedidos:0, subtotal:''};
+           viajes.push(v); enPedidos=false; continue; }
+    if(!v){
+      if((x=campo(l,'Adicionales'))!==null) g.adicionales=x;
+      else if((x=campo(l,'Observaciones'))!==null) g.observaciones=x;
+      continue;
+    }
+    if((x=campo(l,'Vehículo')) !== null){ const mm=x.match(/^(\d+)\s*[×x]\s*(.+)$/); if(mm){ v.cantidad=+mm[1]; v.vehiculo=mm[2].trim(); } else v.vehiculo=x; continue; }
+    if((x=campo(l,'Origen')) !== null){ const p=x.split('·'); v.origen=p[0].trim(); v.dirCargue=(p.slice(1).join('·')).trim(); continue; }
+    if((x=campo(l,'Cargue')) !== null){ const mm=x.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+a las\s+(\d{1,2}:\d{2}))?/i);
+       if(mm){ v.fechaCargue=`${mm[3]}-${pad2(mm[2])}-${pad2(mm[1])}`; v.horaCargue=mm[4]||''; } continue; }
+    if((x=campo(l,'Producto')) !== null){ v.producto = x.split('·')[0].trim(); continue; }
+    if((m=l.match(/^\s*Pedidos\s*\((\d+)\)/i))){ v.pedidos=+m[1]; enPedidos=true; continue; }
+    if((m=l.match(/^\s*Subtotal viaje\s*\d+\s*:\s*(.*)$/i))){ v.subtotal=m[1].trim(); enPedidos=false; continue; }
+    if((x=campo(l,'TOTAL SOLICITUD')) !== null){ v=null; enPedidos=false; continue; }
+    if(enPedidos){
+      if(/^\s*\d+\.\s/.test(l)){ pedidoNuevo = true; continue; }
+      if(pedidoNuevo && l.trim()){ const d=l.trim().split('·')[0].trim(); if(d && !v.destinos.includes(d)) v.destinos.push(d); pedidoNuevo=false; continue; }
+    }
+  }
+  // Adicionales y observaciones pueden venir después del último viaje
+  for(const l of lineas){ let x; if((x=campo(l,'Adicionales'))!==null) g.adicionales=x; if((x=campo(l,'Observaciones'))!==null) g.observaciones=x; }
+  // Una tarjeta por vehículo
+  const filas = [];
+  viajes.forEach(vi=>{
+    for(let k=1;k<=Math.max(1,vi.cantidad);k++){
+      filas.push({
+        ref: vi.ref + (vi.cantidad>1 ? ` · ${k} de ${vi.cantidad}` : ''), refSolicitud:g.ref, viaje:vi.n,
+        cliente:g.cliente, nit:g.nit, contacto:g.contacto, celularCliente:g.celular,
+        vehiculo:vi.vehiculo, origen:vi.origen, dirCargue:vi.dirCargue, fechaCargue:vi.fechaCargue, horaCargue:vi.horaCargue,
+        producto:vi.producto, destinos:vi.destinos, pedidos:vi.pedidos, subtotal:vi.subtotal,
+        adicionales:g.adicionales, observaciones:g.observaciones,
+        recibida: g.recibida || Date.now()
+      });
+    }
+  });
+  return {general:g, filas};
+}
+
+function solLeer(){
+  const txt = document.getElementById('sol-texto').value;
+  const r = leerMensaje(txt);
+  const prev = document.getElementById('sol-preview');
+  if(!r.filas.length){ lecturaPendiente=[]; prev.innerHTML = '<div class="nota-warn">No encontré viajes en el mensaje. Copie el mensaje completo que llega del formulario de solicitudes.</div>'; return; }
+  const repetida = Object.values(solMap).some(s=>s.refSolicitud && s.refSolicitud===r.general.ref);
+  lecturaPendiente = r.filas;
+  prev.innerHTML = `
+    <div style="margin:10px 0;font-size:13px"><b>${esc(r.general.cliente||'Cliente sin nombre')}</b> · NIT ${esc(r.general.nit||'—')} · ${esc(r.general.ref)}<br>
+    <span style="color:var(--muted)">Solicitada ${r.general.recibida?new Date(r.general.recibida).toLocaleString('es-CO'):'(sin fecha: se toma la hora actual)'}</span></div>
+    ${repetida?'<div class="nota-warn">Esta referencia ya está en el tablero. Si la crea de nuevo quedará duplicada.</div>':''}
+    ${r.filas.map(f=>`<div class="prev-row"><b>${esc(f.ref)}</b> · ${esc(f.vehiculo)} · ${esc(f.origen)} → ${esc(f.destinos.join(', ')||'—')} · cargue ${fechaCorta(f.fechaCargue)} ${esc(f.horaCargue)}</div>`).join('')}
+    <button class="btn btn-green" style="margin-top:10px" onclick="solCrear()">Crear ${r.filas.length} ${r.filas.length===1?'solicitud':'solicitudes'} en el tablero</button>`;
+}
+
+async function solCrear(){
+  if(!lecturaPendiente.length) return;
+  try{
+    for(const f of lecturaPendiente){
+      await fbx().addDoc(fbx().collection(fbx().db,'solicitudes'), {
+        ...f, fecha: hoyISO(new Date(f.recibida)), estado:'recibida', abierta:true,
+        servicioNo:'', placa:'', turnoId:null, conductor:'', celularConductor:'', motivoPerdida:'',
+        historial:[{e:'recibida', ts:f.recibida}], creada:Date.now()
+      });
+    }
+    toast(`✅ ${lecturaPendiente.length} creadas en el tablero`,'ok');
+    lecturaPendiente = [];
+    document.getElementById('sol-texto').value=''; document.getElementById('sol-preview').innerHTML='';
+    document.getElementById('sol-pegar').style.display='none';
+  }catch(e){ console.error(e); toast('Error creando: '+e.message,'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TABLERO
+// ═══════════════════════════════════════════════════════════════════
+function renderTablero(){
+  const el = document.getElementById('sol-cols'); if(!el) return;
+  const h = hoyISO();
+  const todas = Object.values(solMap);
+  const filtro = normTxt(document.getElementById('sol-buscar').value);
+  const visibles = todas.filter(s => (s.abierta || hoyISO(new Date(ultimoCambio(s)))===h))
+                        .filter(s => !filtro || normTxt([s.cliente,s.ref,s.placa,s.servicioNo,s.origen,(s.destinos||[]).join(' ')].join(' ')).includes(filtro));
+  // indicadores
+  const deHoy = todas.filter(s=>s.fecha===h);
+  const sinVeh = todas.filter(s=>s.abierta && (s.estado==='recibida'||s.estado==='systram'));
+  const masVieja = sinVeh.reduce((m,s)=>Math.min(m,s.recibida), Infinity);
+  const confHoy = todas.filter(s=>s.tConfirmada && hoyISO(new Date(s.tConfirmada))===h);
+  const prom = confHoy.length ? confHoy.reduce((a,s)=>a+(s.tConfirmada-s.recibida),0)/confHoy.length : null;
+  const mes = mesISO();
+  const perdMes = todas.filter(s=>s.estado==='perdida' && (s.fecha||'').startsWith(mes));
+  const sinVehMes = perdMes.filter(s=>s.motivoPerdida==='Sin vehículo disponible').length;
+  document.getElementById('sol-kpis').innerHTML = [
+    ['Recibidas hoy', deHoy.length, `${new Set(deHoy.map(s=>s.refSolicitud)).size} ${new Set(deHoy.map(s=>s.refSolicitud)).size===1?'solicitud':'solicitudes'} de clientes`, ''],
+    ['Sin vehículo', sinVeh.length, sinVeh.length?'La más antigua: '+dur(Date.now()-masVieja):'Todas tienen vehículo', 'amber'],
+    ['Tiempo de respuesta', prom==null?'—':dur(prom), 'Promedio de hoy: recibida → confirmada', 'blue'],
+    ['Perdidas en el mes', perdMes.length, `${sinVehMes} por falta de vehículo`, 'red']
+  ].map(([l,v,s,c])=>`<div class="kpi ${c}"><div class="kpi-l">${l}</div><div class="kpi-v">${v}</div><div class="kpi-s">${esc(s)}</div></div>`).join('');
+  el.innerHTML = ESTADOS.map(e=>{
+    const items = visibles.filter(s=>s.estado===e.id).sort((a,b)=>a.recibida-b.recibida);
+    return `<div class="kcol"><div class="kcol-h"><span class="dot" style="background:${e.color}"></span>${e.nombre}<span class="kcol-n">${items.length}</span></div>
+      ${items.map(s=>tarjeta(s,e)).join('') || '<div class="kvacio">—</div>'}</div>`;
+  }).join('');
+}
+function ultimoCambio(s){ const hst=s.historial||[]; return hst.length ? hst[hst.length-1].ts : s.recibida; }
+function tarjeta(s, e){
+  const espera = Date.now()-s.recibida;
+  const sinVeh = s.estado==='recibida'||s.estado==='systram';
+  const alerta = sinVeh && espera > 2*3600e3 ? 'var(--red)' : sinVeh && espera > 3600e3 ? 'var(--amber)' : 'var(--muted)';
+  const pie = s.placa ? `Placa ${esc(verPlaca(s.placa))}` : s.servicioNo ? `Servicio No. ${esc(s.servicioNo)}` : `Cargue ${fechaCorta(s.fechaCargue)} ${esc(s.horaCargue||'')}`;
+  const tiempo = s.abierta ? dur(espera) : (s.estado==='perdida' ? esc(s.motivoPerdida||'Perdida') : '✓ '+hora(ultimoCambio(s)));
+  return `<div class="kcard" style="border-top-color:${e.color}" onclick="abrirDetalle('${s.id}')">
+    <div class="kcard-top"><b>${esc(s.cliente||'Cliente')}</b><span style="color:${s.abierta?alerta:'var(--muted)'}">${tiempo}</span></div>
+    <div class="kcard-l">${esc(s.ref)} · ${esc(s.vehiculo)}</div>
+    <div class="kcard-l" style="color:var(--text)">${esc(s.origen)} → ${esc((s.destinos||[])[0]||'—')}${(s.destinos||[]).length>1?' +'+(s.destinos.length-1):''}</div>
+    <div class="kcard-l">${pie}</div></div>`;
+}
+
+// ── detalle ────────────────────────────────────────────────────────
+function abrirDetalle(id){ solAbierta=id; document.getElementById('sol-modal').classList.add('show'); renderDetalle(); }
+function cerrarDetalle(){ solAbierta=null; document.getElementById('sol-modal').classList.remove('show'); }
+
+// Municipios cercanos: un vehículo en turno en cualquiera de ellos sirve para un viaje que sale de otro de la misma zona
+const ZONAS = {
+  'Valle de Aburrá': ['medellin','itagui','sabaneta','la estrella','envigado','bello','copacabana','caldas','girardota','barbosa'],
+  'Oriente antioqueño': ['rionegro','marinilla','guarne','la ceja','el carmen de viboral','el santuario','el retiro','la union','san vicente'],
+  'Eje Cafetero': ['armenia','pereira','cerritos','dosquebradas','santa rosa de cabal','la virginia','manizales','calarca','montenegro','circasia']
+};
+const municipio = txt => normTxt(txt).replace(/\s*\(.*\)/,'').split(/[,·-]/)[0].trim();
+const zonaDe = txt => { const m = municipio(txt); return Object.keys(ZONAS).find(z=>ZONAS[z].some(c=>m===c || m.includes(c))) || null; };
+
+function candidatos(s){
+  const tipoLibre = /recomiende/i.test(s.vehiculo||'');
+  const origen = municipio(s.origen), zonaOrigen = zonaDe(s.origen);
+  return turnos.filter(t=>t.estado==='en_turno').map(t=>{
+    const ev = evaluarDocs(terceroDeTurno(t));
+    const tipoOk = tipoLibre || normTxt(t.tipoVehiculo)===normTxt(s.vehiculo);
+    const sede = municipio(t.sede);
+    const sedeOk = !origen || origen.includes(sede) || sede.includes(origen);
+    const zonaOk = sedeOk || (zonaOrigen && zonaDe(t.sede) === zonaOrigen);
+    const gps = gpsHoy(t);
+    const nota = !sedeOk && zonaOk ? `en turno en ${t.sede} (${zonaOrigen})` : '';
+    let motivo = !tipoOk ? 'No es '+s.vehiculo : !ev.ok ? ev.faltas[0] : !zonaOk ? 'En turno en '+t.sede+', otra zona' : !gps ? 'GPS por verificar' : '';
+    const nivel = !tipoOk || !ev.ok ? 3 : !zonaOk ? 2 : !gps ? 1 : 0;
+    return {t, ev, gps, motivo, nota, nivel, cerca: sedeOk ? 0 : 1};
+  }).sort((a,b)=>a.nivel-b.nivel || a.cerca-b.cerca || a.t.hora-b.t.hora);
+}
+
+function renderDetalle(){
+  const s = solMap[solAbierta]; const box = document.getElementById('sol-det');
+  if(!s){ box.innerHTML='<p>La solicitud ya no está disponible.</p>'; return; }
+  const e = estadoDe(s.estado);
+  const filas = [
+    ['Vehículo', s.vehiculo], ['Origen', `${s.origen}${s.dirCargue?' · '+s.dirCargue:''}`],
+    ['Cargue', `${fechaCorta(s.fechaCargue)} ${s.horaCargue||''}`], ['Destinos', (s.destinos||[]).join(', ')||'—'],
+    ['Producto', s.producto||'—'], ['Pedidos', s.pedidos ? `${s.pedidos} · ${s.subtotal||''}` : (s.subtotal||'—')],
+    ['Contacto', `${s.contacto||''} ${s.celularCliente?'· '+s.celularCliente:''}`], ['Adicionales', s.adicionales||'Ninguno'],
+    ['Observaciones', s.observaciones||'—'], ['Solicitud', `${s.refSolicitud||''} · recibida ${new Date(s.recibida).toLocaleString('es-CO')}`]
+  ];
+  let vehiculo = '';
+  if(s.placa){
+    vehiculo = `<div class="asig-box"><div><div style="font-weight:800;font-size:18px">${esc(verPlaca(s.placa))}</div>
+      <div style="font-size:12px;color:var(--muted)">${esc(s.conductor)}${s.celularConductor?' · '+esc(s.celularConductor):''}</div></div>
+      ${s.abierta && s.estado!=='despachada' ? `<button class="btn btn-outline btn-sm" onclick="quitarVehiculo()">Quitar vehículo</button>`:''}</div>`;
+  } else if(s.abierta){
+    const cs = candidatos(s);
+    vehiculo = cs.length ? cs.slice(0,8).map(c=>`
+      <div class="cand ${c.nivel===0?'top':''} ${c.nivel>=3?'off':''}">
+        <div style="flex:1"><b>${esc(verPlaca(c.t.placa))}</b> <span style="font-size:12px;color:var(--muted)">${esc(c.t.tipoVehiculo)} · ${esc(c.t.sede)} · ${dur(Date.now()-c.t.hora)} en turno</span>
+          <div style="font-size:12px;color:${c.nivel===0?'var(--green)':c.nivel>=3?'var(--red)':'var(--amber)'}">${c.nivel===0?'✓ Listo para cargar':esc(c.motivo)}${c.nota?' · '+esc(c.nota):''}</div>
+          ${historialTxt(terceroDeTurno(c.t))?`<div style="font-size:11px;color:var(--muted)">🕘 ${esc(historialTxt(terceroDeTurno(c.t)))}</div>`:''}</div>
+        ${c.nivel<3?`<button class="btn ${c.nivel===0?'btn-green':'btn-outline'} btn-sm" onclick="asignar('${c.t.id}')">Asignar</button>`:''}
+      </div>`).join('') : '<div style="color:var(--muted);font-size:13px">No hay vehículos en turno hoy.</div>';
+  }
+  const acciones = [];
+  if(s.estado==='asignado') acciones.push(`<button class="btn btn-green" onclick="confirmarCliente()">Confirmar al cliente por WhatsApp</button>`);
+  if(s.estado==='confirmada') acciones.push(`<button class="btn btn-blue" onclick="cambiarEstado('despachada')">Marcar despachada</button>`);
+  if(s.abierta) acciones.push(`<div style="display:flex;gap:8px"><select id="det-motivo">${MOTIVOS_PERDIDA.map(m=>`<option>${m}</option>`).join('')}</select>
+      <button class="btn btn-outline btn-sm" style="white-space:nowrap" onclick="marcarPerdida()">Marcar perdida</button></div>`);
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-right:44px">
+      <div><div style="font-size:20px;font-weight:800">${esc(s.cliente)}</div><div style="color:var(--muted);font-size:13px">${esc(s.ref)}</div></div>
+      <span class="badge" style="background:rgba(255,255,255,.06);color:${e.color}">${e.nombre}</span>
+    </div>
+    <dl class="det-kv">${filas.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    <div class="card-title" style="margin-top:16px">Servicio en Systram</div>
+    <div style="display:flex;gap:8px"><input id="det-serv" placeholder="Servicio No." value="${esc(s.servicioNo||'')}" ${s.abierta?'':'disabled'}>
+      ${s.abierta?`<button class="btn btn-blue btn-sm" onclick="guardarServicio()">Guardar</button>`:''}</div>
+    <div class="card-title" style="margin-top:16px">${s.placa?'Vehículo asignado':'Vehículos en turno'}</div>
+    ${vehiculo}
+    ${acciones.length?`<div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">${acciones.join('')}</div>`:''}
+    ${s.estado==='perdida'?`<div class="nota-warn" style="margin-top:12px">Perdida: ${esc(s.motivoPerdida)}</div>`:''}
+    <div class="card-title" style="margin-top:18px">Historial</div>
+    <div style="font-size:13px">${(s.historial||[]).map((h,i,a)=>`<div class="hist"><span class="dot" style="background:${estadoDe(h.e).color}"></span>${estadoDe(h.e).nombre}<span style="margin-left:auto;color:var(--muted)">${new Date(h.ts).toLocaleString('es-CO',{day:'2-digit',month:'2-digit',hour:'numeric',minute:'2-digit'})}${i?' · +'+dur(h.ts-a[i-1].ts):''}</span></div>`).join('')}</div>`;
+}
+
+async function actualizarSol(cambios, nuevoEstado){
+  const s = solMap[solAbierta]; if(!s) return false;
+  const datos = {...cambios};
+  if(nuevoEstado && nuevoEstado!==s.estado){
+    datos.estado = nuevoEstado;
+    datos.historial = [...(s.historial||[]), {e:nuevoEstado, ts:Date.now()}];
+    datos.abierta = !(nuevoEstado==='despachada' || nuevoEstado==='perdida');
+  }
+  try{ await fbx().updateDoc(fbx().doc(fbx().db,'solicitudes',s.id), datos); return true; }
+  catch(e){ toast('Error: '+e.message,'err'); return false; }
+}
+
+async function guardarServicio(){
+  const s = solMap[solAbierta]; const n = document.getElementById('det-serv').value.trim();
+  if(!n){ toast('Escriba el número de servicio de Systram','err'); return; }
+  const ok = await actualizarSol({servicioNo:n}, s.estado==='recibida' ? 'systram' : null);
+  if(ok) toast('✅ Servicio guardado','ok');
+}
+
+async function asignar(turnoId){
+  const s = solMap[solAbierta]; const c = candidatos(s).find(x=>x.t.id===turnoId); if(!c) return;
+  if(c.nivel>0 && !confirm(`${verPlaca(c.t.placa)}: ${c.motivo}. ¿Asignarlo de todas formas?`)) return;
+  if(!s.servicioNo && !confirm('Esta solicitud todavía no tiene número de servicio de Systram. ¿Asignar el vehículo igual?')) return;
+  try{
+    await fbx().updateDoc(fbx().doc(fbx().db,'turnos',turnoId), {estado:'asignado', solicitudId:s.id, asignado:Date.now()});
+    const pv = privMap[turnoId] || {};
+    const ok = await actualizarSol({placa:c.t.placa, turnoId, conductor:pv.nombre||'', celularConductor:pv.celular||''}, 'asignado');
+    if(ok) toast('✅ '+verPlaca(c.t.placa)+' asignado','ok');
+  }catch(e){ toast('Error: '+e.message,'err'); }
+}
+
+async function quitarVehiculo(){
+  const s = solMap[solAbierta]; if(!s || !s.turnoId) return;
+  if(!confirm('¿Quitar el vehículo? Vuelve al turno en su mismo puesto.')) return;
+  try{
+    await fbx().updateDoc(fbx().doc(fbx().db,'turnos',s.turnoId), {estado:'en_turno', solicitudId:null});
+    await actualizarSol({placa:'', turnoId:null, conductor:'', celularConductor:'', tConfirmada:null}, s.servicioNo ? 'systram' : 'recibida');
+  }catch(e){ toast('Error: '+e.message,'err'); }
+}
+
+async function confirmarCliente(){
+  const s = solMap[solAbierta]; if(!s) return;
+  let cel = String(s.celularCliente||'').replace(/\D/g,'');
+  if(cel.length===10) cel = '57'+cel;
+  const msg = [`Hola${s.contacto?' '+s.contacto:''}, Quick Line Transportes confirma su solicitud ${s.ref}:`,
+    `🚚 ${s.vehiculo} · placa ${verPlaca(s.placa)}`,
+    `👤 Conductor: ${s.conductor}${s.celularConductor?' · '+s.celularConductor:''}`,
+    `📍 Cargue: ${s.origen} · ${fechaCorta(s.fechaCargue)}${s.horaCargue?' a las '+s.horaCargue:''}`,
+    s.servicioNo ? `Servicio No. ${s.servicioNo}` : '', `Gracias por confiar en Quick Line.`].filter(Boolean).join('\n');
+  window.open(`https://wa.me/${cel}?text=${encodeURIComponent(msg)}`, '_blank');
+  const ok = await actualizarSol({tConfirmada:Date.now()}, 'confirmada');
+  if(ok) toast('✅ Confirmada','ok');
+}
+
+async function cambiarEstado(est){
+  const extra = est==='despachada' ? {tDespachada:Date.now()} : {};
+  const s = solMap[solAbierta];
+  const ok = await actualizarSol(extra, est);
+  if(ok && est==='despachada' && s.turnoId){
+    try{ await fbx().updateDoc(fbx().doc(fbx().db,'turnos',s.turnoId), {estado:'despachado'}); }catch(e){}
+  }
+}
+
+async function marcarPerdida(){
+  const s = solMap[solAbierta]; if(!s) return;
+  const motivo = document.getElementById('det-motivo').value;
+  if(!confirm(`¿Marcar ${s.ref} como perdida (${motivo})?`)) return;
+  if(s.turnoId){ try{ await fbx().updateDoc(fbx().doc(fbx().db,'turnos',s.turnoId), {estado:'en_turno', solicitudId:null}); }catch(e){} }
+  await actualizarSol({motivoPerdida:motivo, placa:'', turnoId:null}, 'perdida');
+}
+
+// ── exportar el mes a Excel (para el Dashboard General) ─────────────
+function exportarSolicitudes(){
+  const filas = Object.values(solMap).sort((a,b)=>a.recibida-b.recibida);
+  if(!filas.length){ toast('No hay solicitudes para exportar','err'); return; }
+  const ts = (s,e) => { const h=(s.historial||[]).find(x=>x.e===e); return h ? new Date(h.ts).toLocaleString('es-CO') : ''; };
+  const data = [['Referencia','Solicitud','Cliente','NIT','Vehículo','Origen','Destinos','Fecha cargue','Hora cargue','Estado',
+                 'Servicio No.','Placa','Conductor','Recibida','En Systram','Vehículo asignado','Confirmada','Despachada',
+                 'Minutos de respuesta (recibida → confirmada)','Motivo de pérdida'],
+    ...filas.map(s=>[s.ref, s.refSolicitud||'', s.cliente, s.nit, s.vehiculo, s.origen, (s.destinos||[]).join(', '),
+      fechaCorta(s.fechaCargue), s.horaCargue||'', estadoDe(s.estado).nombre, s.servicioNo||'', verPlaca(s.placa||''), s.conductor||'',
+      new Date(s.recibida).toLocaleString('es-CO'), ts(s,'systram'), ts(s,'asignado'), ts(s,'confirmada'), ts(s,'despachada'),
+      s.tConfirmada ? Math.round((s.tConfirmada-s.recibida)/60000) : '', s.motivoPerdida||''])];
+  const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = data[0].map((h,i)=>({wch:[22,24,28,13,16,16,30,12,10,18,13,10,24,20,20,20,20,20,16,22][i]||14}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Solicitudes');
+  XLSX.writeFile(wb, `QuickLine_Solicitudes_${hoyISO()}.xlsx`);
+  toast('✅ Excel descargado','ok');
+}
+
+</script>
+</div><!-- /app-main -->
+</body>
+</html>
